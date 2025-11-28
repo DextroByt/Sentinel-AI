@@ -1,89 +1,111 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sentinel AI - Live Timeline</title>
-    <!-- Load Tailwind CSS -->
+    <title>Timeline Analysis - Sentinel AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Custom CSS -->
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
 </head>
-<body class="min-h-screen">
+<body class="antialiased min-h-screen flex flex-col selection:bg-blue-500/30 selection:text-blue-200">
 
-    <!-- Header & Navigation -->
-    <header class="bg-gray-900 shadow-xl sticky top-0 z-10 border-b border-gray-700">
-        <div class="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-extrabold text-white">
-                <a href="index.html" class="hover:text-gray-300">Sentinel AI <span class="text-green-500">Veritas</span></a>
-            </h1>
-            <nav class="flex items-center space-x-4">
-                <button id="submit-claim-btn" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-150">
-                    Submit Claim (Action 4)
-                </button>
-            </nav>
+    <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+        <div class="absolute top-[10%] right-[-5%] w-[40vw] h-[40vw] bg-blue-900/10 rounded-full blur-[100px] opacity-30"></div>
+        <div class="absolute bottom-[10%] left-[-5%] w-[40vw] h-[40vw] bg-purple-900/10 rounded-full blur-[100px] opacity-20"></div>
+    </div>
+
+    <header class="sticky top-0 z-50 glass border-t-0 border-x-0 transition-all duration-300">
+        <div class="max-w-5xl mx-auto px-4 h-14 flex justify-between items-center">
+            <a href="index.html" class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-xs font-mono uppercase tracking-widest group">
+                <svg class="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                Return to Dashboard
+            </a>
+            <div class="flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_#22c55e]"></span>
+                <span class="text-[10px] text-green-400 font-mono uppercase tracking-widest">Live Uplink</span>
+            </div>
         </div>
     </header>
 
-    <!-- Main Content Area (Timeline) -->
-    <main class="max-w-4xl mx-auto p-4">
-        <h2 class="text-3xl font-bold mb-6 text-gray-200 border-b pb-2 border-gray-700">Live Crisis Timeline: Mumbai Floods 2025</h2>
+    <main class="flex-grow w-full max-w-5xl mx-auto px-4 py-8">
         
-        <!-- Timeline Container -->
-        <div id="timeline-container" class="space-y-6">
-            <!-- Skeleton Loaders (Initial State) -->
-            <div id="skeleton-container">
-                <!-- Skeleton background changed to gray-800 -->
-                <div class="bg-gray-800 p-5 rounded-xl shadow-md space-y-3 skeleton h-48"></div>
-                <div class="bg-gray-800 p-5 rounded-xl shadow-md space-y-3 skeleton h-48 mt-6"></div>
-                <div class="bg-gray-800 p-5 rounded-xl shadow-md space-y-3 skeleton h-48 mt-6"></div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Modal for Manual Claim Submission (Action 4) -->
-    <div id="claim-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50">
-        <!-- Modal content card background changed to gray-800 -->
-        <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg p-6">
-            <h3 class="text-2xl font-bold mb-4 text-white border-b pb-2 border-gray-700">Submit Unconfirmed Claim</h3>
-            <p class="text-sm text-gray-400 mb-4">You are acting as a sensor for Sentinel AI. Your submission will be processed in the background and a verdict will appear on the timeline.</p>
-            
-            <form id="claim-form">
-                <textarea id="claim-text-input" 
-                    class="w-full p-3 border border-gray-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 resize-none bg-gray-700 text-white placeholder-gray-400" 
-                    rows="4" 
-                    placeholder="Enter the unconfirmed rumor or claim you want to verify (min 10 characters)..." 
-                    required></textarea>
+        <section class="mb-8 animate-in">
+            <div id="conclusion-section" class="glass-panel p-8 rounded-2xl relative overflow-hidden group transition-all duration-500 border border-white/10">
+                <div id="conclusion-bg-pulse" class="absolute top-0 left-0 w-full h-1 bg-gray-700 transition-colors duration-500"></div>
                 
-                <div class="flex justify-between items-center mt-3">
-                    <p id="char-count" class="text-sm text-red-400">0 / 10 required</p>
+                <div class="relative z-10 flex flex-col gap-6">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div id="conclusion-badge" class="px-4 py-1.5 rounded-md border text-[10px] font-bold font-mono uppercase tracking-widest transition-all duration-300 bg-gray-800 border-gray-700 text-gray-400">
+                            CALCULATING...
+                        </div>
+                        <span id="conclusion-updated-at" class="text-[10px] font-mono text-gray-500 uppercase tracking-widest opacity-70">Syncing...</span>
+                    </div>
+                    
                     <div>
-                        <button type="button" id="cancel-claim-btn" class="px-4 py-2 text-gray-400 rounded-lg hover:bg-gray-700 transition duration-150 mr-3">
-                            Cancel
+                        <h1 id="crisis-name" class="text-3xl md:text-4xl font-black text-white mb-4 tracking-tight leading-tight">Loading Intelligence...</h1>
+                        <p id="conclusion-text" class="text-gray-300 text-sm md:text-base leading-relaxed font-light max-w-3xl border-l-2 border-white/10 pl-4">
+                            Sentinel AI is currently aggregating verified claims and cross-referencing data sources...
+                        </p>
+                        <p id="crisis-desc" class="hidden text-gray-500 text-xs font-mono mt-4 uppercase tracking-widest">
+                            </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="key-updates-section" class="mb-12 hidden animate-in delay-100">
+            <div class="flex items-center gap-3 mb-4 px-2">
+                <div class="h-px flex-grow bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                <h2 class="text-[10px] font-bold font-mono uppercase text-blue-400 tracking-[0.2em]">Latest Signals</h2>
+                <div class="h-px flex-grow bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+            </div>
+            <div id="key-updates-grid" class="grid sm:grid-cols-2 gap-4"></div>
+        </section>
+
+        <div class="relative animate-in delay-200">
+            
+            <div id="filter-container" class="sticky top-16 z-40 mb-8 backdrop-blur-md bg-black/20 border-y border-white/5 py-3 -mx-4 px-4">
+                <div class="flex items-center justify-between max-w-5xl mx-auto">
+                    <span class="text-[10px] font-medium text-gray-500 font-mono uppercase tracking-widest hidden sm:block">Timeline Stream</span>
+                    
+                    <div id="filter-buttons" class="flex gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto">
+                        <button class="filter-btn active px-4 py-1.5 rounded-full text-[10px] font-bold border border-white/20 bg-white text-black transition-all whitespace-nowrap hover:scale-105" data-filter="ALL">
+                            ALL INTEL
                         </button>
-                        <button type="submit" id="verify-now-btn" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md transition duration-150 disabled:bg-indigo-800 disabled:text-gray-400" disabled>
-                            VERIFY NOW
+                        <button class="filter-btn px-4 py-1.5 rounded-full text-[10px] font-bold border border-transparent bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-all whitespace-nowrap hover:scale-105" data-filter="VERIFIED">
+                            VERIFIED
+                        </button>
+                        <button class="filter-btn px-4 py-1.5 rounded-full text-[10px] font-bold border border-transparent bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all whitespace-nowrap hover:scale-105" data-filter="DEBUNKED">
+                            DEBUNKED
+                        </button>
+                        <button class="filter-btn px-4 py-1.5 rounded-full text-[10px] font-bold border border-transparent bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 transition-all whitespace-nowrap hover:scale-105" data-filter="UNCONFIRMED">
+                            UNCONFIRMED
                         </button>
                     </div>
                 </div>
-            </form>
+            </div>
 
-            <!-- Receipt colors adjusted for dark theme -->
-            <p id="submission-receipt" class="mt-4 hidden text-sm p-3 bg-green-900 text-green-300 border border-green-700 rounded-lg">
-                Claim submitted successfully! ID: <span id="receipt-id" class="font-mono"></span>. It is now <span class="font-bold">PENDING</span> processing.
-            </p>
+            <div id="feed-container" class="relative min-h-[500px]">
+                <div class="absolute left-[19px] top-0 bottom-0 w-px bg-gradient-to-b from-blue-500/20 via-white/5 to-transparent"></div>
+
+                <div id="timeline-feed" class="space-y-8">
+                    <div class="pl-12 py-2">
+                        <div class="animate-pulse space-y-4 opacity-30">
+                            <div class="h-24 bg-gray-800 rounded-xl border border-gray-700 w-full"></div>
+                            <div class="h-24 bg-gray-800 rounded-xl border border-gray-700 w-3/4"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
-    </div>
 
-    <!-- Toast Notification Container (Action 6) -->
-    <div id="toast-container" class="fixed bottom-4 right-4 space-y-3 z-50">
-        <!-- Toasts will be injected here -->
-    </div>
+    </main>
 
-    <!-- Load JavaScript -->
-    <!-- utils.js must be loaded first as it defines shared constants and utilities -->
-    <script src="./utils.js"></script>
-    <!-- timeline.js contains the page-specific logic -->
-    <script src="./timeline.js"></script>
-</body>
+    <script type="module" src="js/timeline.js"></script>
+    
+    </body>
 </html>

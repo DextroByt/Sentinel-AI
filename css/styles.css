@@ -1,25 +1,183 @@
-@import url('https://www.google.com/search?q=https://fonts.googleapis.com/css2%3Ffamily%3DInter:wght%40100..900%26display%3Dswap');
+/* frontend-veritas-app/css/styles.css */
+
+/* --- 1. CORE RESET & BASICS --- */
+:root {
+    --bg-color: #000000;
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --primary-blue: #3b82f6;
+    --accent-purple: #8b5cf6;
+    --danger-red: #ef4444;
+    --success-green: #10b981;
+}
+
 body {
-font-family: 'Inter', sans-serif;
-background-color: #f7fafc; /* Light gray background /
+    background-color: var(--bg-color);
+    color: #e5e7eb;
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
 }
-/ Custom Colors based on Trust UX Paradigm (See Blueprint Section 1.3) /
-/ These define the visual shorthand for immediate cognitive cues /
-.status-VERIFIED { --bg: #16a34a; --text: #f0fdf4; --ring: #bbf7d0; } / Green /
-.status-DEBUNKED { --bg: #dc2626; --text: #fef2f2; --ring: #fecaca; } / Red /
-.status-UNCONFIRMED { --bg: #facc15; --text: #3f3f46; --ring: #fde68a; } / Yellow */
 
-.status-bg { background-color: var(--bg); color: var(--text); }
-.status-ring { box-shadow: 0 0 0 3px var(--ring); }
+.font-mono { font-family: 'Roboto Mono', monospace; }
 
-/* Custom Skeleton Loading Animation (Action 3: Skeleton Screens) */
-.skeleton {
-background: linear-gradient(-90deg, #f0f0f0 0%, #f7f7f7 50%, #f0f0f0 100%);
-background-size: 400% 400%;
-animation: pulse 1.2s ease-in-out infinite;
+/* --- 2. PREMIUM GLASSMORPHISM UTILITIES --- */
+.glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
-@keyframes pulse {
-0% { background-position: 100% 0; }
-100% { background-position: 0 0; }
+
+.glass-panel {
+    background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid rgba(255, 255, 255, 0.1); /* Highlight top edge */
+    box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.2);
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
+
+/* Severity Hover Effects (Triggered via JS classes) */
+.severity-high:hover {
+    border-color: rgba(239, 68, 68, 0.4);
+    box-shadow: 0 0 40px rgba(239, 68, 68, 0.15);
+    transform: translateY(-4px);
+}
+
+.severity-hoax:hover {
+    border-color: rgba(139, 92, 246, 0.4);
+    box-shadow: 0 0 40px rgba(139, 92, 246, 0.15);
+    transform: translateY(-4px);
+}
+
+.severity-low:hover {
+    border-color: rgba(59, 130, 246, 0.4);
+    box-shadow: 0 0 40px rgba(59, 130, 246, 0.15);
+    transform: translateY(-4px);
+}
+
+/* --- 3. AGENTIC FLOW VISUALS (Pure CSS) --- */
+.flow-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 0;
+}
+
+.flow-node {
+    position: relative;
+    z-index: 10;
+    background: #0a0a0a;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    padding: 1.5rem;
+    width: 180px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.flow-node:hover {
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+}
+
+.flow-node-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+/* Animated Connecting Lines */
+.flow-line {
+    position: relative;
+    height: 2px;
+    background: rgba(255,255,255,0.1);
+    flex-grow: 1;
+    min-width: 40px;
+    overflow: hidden;
+}
+
+.flow-line::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, var(--primary-blue), transparent);
+    animation: flowPulse 2s infinite linear;
+}
+
+@keyframes flowPulse {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+}
+
+/* Mobile Responsiveness for Flow */
+@media (max-width: 768px) {
+    .flow-container { flex-direction: column; gap: 2rem; }
+    .flow-line { width: 2px; height: 40px; min-width: 0; }
+    .flow-line::after { width: 100%; height: 50%; animation: flowPulseVert 2s infinite linear; background: linear-gradient(180deg, transparent, var(--primary-blue), transparent); }
+}
+
+@keyframes flowPulseVert {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(200%); }
+}
+
+/* --- 4. ANIMATIONS --- */
+@keyframes slideUpFade {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in {
+    animation: slideUpFade 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    opacity: 0; /* Start hidden */
+}
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+
+@keyframes pulse-glow {
+    0%, 100% { opacity: 0.5; box-shadow: 0 0 15px var(--primary-blue); }
+    50% { opacity: 1; box-shadow: 0 0 30px var(--primary-blue); }
+}
+
+/* --- 5. UI ELEMENTS --- */
+.nav-link {
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    color: #9ca3af;
+    transition: color 0.2s ease;
+}
+.nav-link:hover { color: #fff; }
+
+.region-btn {
+    transition: all 0.3s ease;
+}
+.region-btn.active {
+    background: white;
+    color: black;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #050505; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
+
+/* --- 6. SCIFI CARD (Retained & Polished) --- */
+.scifi-outer {
+    background: radial-gradient(circle 800px at 50% 0%, rgba(255,255,255,0.1), rgba(0,0,0,0));
+    border: 1px solid rgba(255,255,255,0.1);
+}
+.scifi-card {
+    background: #050505; /* Darker solid bg for readability */
 }

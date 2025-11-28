@@ -1,301 +1,327 @@
-// --- Configuration & Constants ---
-const API_BASE_URL = "/api/v1";
-const CRISIS_ID = "mumbai-floods-2025";
-const POLL_INTERVAL_MS = 30000; // 30 seconds (Action 3: Adaptive Polling)
-const MIN_CLAIM_LENGTH = 10;
+import { api } from './api.js';
+import { getStatusClasses, showToast } from './utils.js';
 
-// Trust UX Colors mapping
-const STATUS_COLORS = {
-    'VERIFIED': { icon: '✅', label: 'VERIFIED', color: 'status-VERIFIED' },
-    'DEBUNKED': { icon: '❌', label: 'DEBUNKED', color: 'status-DEBUNKED' },
-    'UNCONFIRMED': { icon: '🟡', label: 'UNCONFIRMED', color: 'status-UNCONFIRMED' },
-};
+// --- STATE ---
+let activeCrises = [];
+let filteredCrises = [];
+let currentFilter = 'ALL'; // ALL, INDIA, GLOBAL
+let pollingInterval = null;
+let notificationInterval = null;
+let lastNotificationId = localStorage.getItem('sentinel_last_notif_id');
 
-// State to track current timeline items for diffing logic
-let currentTimelineItemIds = new Set();
-let lastUpdateTime = new Date().toISOString();
+// --- DOM ELEMENTS ---
+const grid = document.getElementById('crisis-grid');
+const filterBtns = document.querySelectorAll('.region-btn');
 
-// --- DOM Elements ---
-// Note: These elements must exist in the loaded index.html file
-const timelineContainer = document.getElementById('timeline-container');
-const skeletonContainer = document.getElementById('skeleton-container');
-const claimModal = document.getElementById('claim-modal');
-const submitClaimBtn = document.getElementById('submit-claim-btn');
-const cancelClaimBtn = document.getElementById('cancel-claim-btn');
-const claimForm = document.getElementById('claim-form');
-const claimTextInput = document.getElementById('claim-text-input');
-const verifyNowBtn = document.getElementById('verify-now-btn');
-const charCountDisplay = document.getElementById('char-count');
-const submissionReceipt = document.getElementById('submission-receipt');
-const toastContainer = document.getElementById('toast-container');
+const adhocForm = document.getElementById('adhoc-analysis-form');
+const adhocInput = document.getElementById('adhoc-input');
+const submitBtn = document.getElementById('submit-btn');
+const formStatus = document.getElementById('form-status');
+const resultContainer = document.getElementById('adhoc-result-container');
+const verdictText = document.getElementById('adhoc-verdict-text');
+const badge = document.getElementById('adhoc-badge');
+const sourcesList = document.getElementById('adhoc-sources-list');
 
-// --- Utility Functions ---
-
-/**
- * Action 6: Displays an in-app toast notification.
- * @param {string} message - The notification message.
- * @param {string} type - The status type ('VERIFIED', 'DEBUNKED', 'UNCONFIRMED').
- */
-function showToast(message, type) {
-    const status = STATUS_COLORS[type] || STATUS_COLORS['UNCONFIRMED'];
-    const toast = document.createElement('div');
+// --- INITIALIZATION ---
+document.addEventListener('DOMContentLoaded', async () => {
+    await fetchCrises();
+    await checkNotifications();
     
-    // Visual Physics: Uses Tailwind classes for sliding up from bottom-right corner
-    toast.className = `status-bg text-sm font-semibold px-4 py-3 rounded-xl shadow-2xl transition-all duration-300 transform translate-y-full opacity-0 max-w-xs`;
-    toast.style.width = 'fit-content';
-    toast.style.cursor = 'pointer';
-    toast.innerHTML = `<div class="flex items-center space-x-2"><span>${status.icon}</span><span>${message}</span></div>`;
+    // Polling (Live Updates)
+    setInterval(fetchCrises, 5000); 
+    notificationInterval = setInterval(checkNotifications, 30000);
     
-    toastContainer.appendChild(toast);
-    
-    // Use requestAnimationFrame for smooth 60fps animation
-    requestAnimationFrame(() => {
-        toast.classList.remove('translate-y-full', 'opacity-0');
-        toast.classList.add('translate-y-0', 'opacity-100');
+    setupRegionFilter();
+});
+
+// --- FUNCTIONS ---
+
+function setupRegionFilter() {
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // UI Update
+            filterBtns.forEach(b => {
+                b.classList.remove('active', 'bg-white', 'text-black', 'shadow-lg');
+                b.classList.add('text-gray-400', 'hover:text-white', 'hover:bg-white/10');
+            });
+            btn.classList.add('active', 'bg-white', 'text-black', 'shadow-lg');
+            btn.classList.remove('text-gray-400', 'hover:text-white', 'hover:bg-white/10');
+            
+            // Logic Update
+            currentFilter = btn.getAttribute('data-filter');
+            applyFilter();
+        });
     });
-
-    // Auto-hide the toast after 8 seconds
-    setTimeout(() => {
-        toast.classList.remove('translate-y-0', 'opacity-100');
-        toast.classList.add('translate-y-full', 'opacity-0');
-        setTimeout(() => {
-            toast.remove();
-        }, 300); // Wait for CSS transition to finish
-    }, 8000);
-
-    // Close on click
-    toast.onclick = () => {
-        toast.remove();
-    };
 }
 
-/**
- * Renders a single timeline item card.
- * @param {Object} item - The timeline item object.
- * @returns {HTMLElement} The created DOM element.
- */
-function createTimelineCard(item) {
-    const status = STATUS_COLORS[item.status] || STATUS_COLORS['UNCONFIRMED'];
-    const card = document.createElement('div');
-    card.id = `timeline-item-${item.id}`; // Unique ID for diffing
-    card.className = "bg-white p-5 rounded-xl shadow-xl transition-all duration-300 hover:shadow-2xl";
-    
-    card.innerHTML = `
-        <!-- Trust UX Color-Coded Header -->
-        <div class="flex items-center justify-between mb-3 pb-3 border-b-2 border-gray-100">
-            <span class="${status.color} px-3 py-1 text-sm font-bold uppercase rounded-full status-ring">
-                ${status.icon} ${status.label}
-            </span>
-            <time class="text-xs text-gray-500">
-                ${new Date(item.created_at).toLocaleString()}
-            </time>
-        </div>
+async function fetchCrises() {
+    try {
+        activeCrises = await api.getCrises();
+        applyFilter();
+    } catch (error) {
+        console.error('API Error:', error);
+        renderErrorState();
+    }
+}
 
-        <!-- Claim Text -->
-        <p class="text-lg font-semibold text-gray-800 mb-3">${item.claim_text}</p>
+function applyFilter() {
+    if (currentFilter === 'ALL') {
+        filteredCrises = activeCrises;
+    } else if (currentFilter === 'INDIA') {
+        filteredCrises = activeCrises.filter(c => (c.location && c.location.includes('India')));
+    } else if (currentFilter === 'GLOBAL') {
+        filteredCrises = activeCrises.filter(c => (!c.location || !c.location.includes('India')));
+    }
+    renderDashboard();
+}
+
+async function checkNotifications() {
+    try {
+        const notification = await api.getLatestNotification();
+        if (notification && notification.id !== lastNotificationId) {
+            lastNotificationId = notification.id;
+            localStorage.setItem('sentinel_last_notif_id', notification.id);
+            
+            let type = 'info';
+            if (notification.notification_type === 'CATASTROPHIC_ALERT') type = 'error'; 
+            if (notification.notification_type === 'MISINFO_ALERT') type = 'success';
+            
+            showToast(notification.content, type, notification.crisis_id);
+        }
+    } catch (e) {}
+}
+
+function renderDashboard() {
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    if (filteredCrises.length === 0) {
+        grid.innerHTML = `
+            <div class="col-span-full flex flex-col items-center justify-center py-24 border border-dashed border-white/10 rounded-2xl bg-white/5">
+                <p class="text-gray-500 font-mono text-xs uppercase tracking-widest mb-2">System Status: Active</p>
+                <p class="text-white font-bold">
+                    ${currentFilter === 'INDIA' ? 'No active threats detected in India.' : 'Global feeds are currently clear.'}
+                </p>
+            </div>`;
+        return;
+    }
+
+    filteredCrises.forEach(crisis => {
+        const card = document.createElement('a');
+        card.href = `timeline.html?id=${crisis.id}`;
         
-        <!-- Verdict Summary -->
-        <p class="text-gray-600 italic mb-4">${item.summary}</p>
+        const rawVerdict = crisis.verdict_status ? crisis.verdict_status.toUpperCase() : 'PENDING';
         
-        <!-- Evidence Sources (JSON Evidence Storage) -->
-        ${item.sources && item.sources.length > 0 ? `
-            <div class="mt-4 pt-3 border-t border-gray-100">
-                <p class="text-xs font-semibold uppercase text-gray-500 mb-2">Source Evidence (${item.sources.length})</p>
-                <ul class="space-y-1">
-                    ${item.sources.map(source => `
-                        <li class="text-sm text-blue-600 hover:text-blue-800 truncate">
-                            <a href="${source.uri}" target="_blank" rel="noopener noreferrer" title="${source.title || source.uri}">
-                                ${source.title || source.uri}
-                            </a>
-                        </li>
-                    `).join('')}
-                </ul>
+        // --- INTELLIGENT STYLING ENGINE ---
+        // Determines the card's "personality" (Red/Purple/Blue) based on the threat type.
+        let statusConfig = {
+            word: 'ANALYZING',
+            styleClass: 'text-blue-400 border-blue-500/30 bg-blue-500/10',
+            severityClass: 'severity-low', // Default Blue Glow
+            dotColor: 'bg-blue-500'
+        };
+
+        if (rawVerdict.includes('MISINFORMATION') || rawVerdict.includes('HOAX')) {
+            statusConfig = {
+                word: 'HOAX DETECTED',
+                styleClass: 'text-purple-300 border-purple-500/40 bg-purple-500/20 shadow-[0_0_15px_rgba(147,51,234,0.2)]',
+                severityClass: 'severity-hoax', // Purple Glow
+                dotColor: 'bg-purple-400'
+            };
+        } 
+        else if (rawVerdict.includes('CATASTROPHIC') || rawVerdict.includes('EMERGENCY')) {
+            statusConfig = {
+                word: 'REAL CRISIS',
+                styleClass: 'text-red-200 border-red-500/40 bg-red-500/20 shadow-[0_0_15px_rgba(220,38,38,0.2)] animate-pulse',
+                severityClass: 'severity-high', // Red Glow
+                dotColor: 'bg-red-500'
+            };
+        }
+        else if (rawVerdict.includes('CONFIRMED')) {
+            statusConfig = {
+                word: 'VERIFIED EVENT',
+                styleClass: 'text-orange-300 border-orange-500/40 bg-orange-500/10',
+                severityClass: 'severity-low',
+                dotColor: 'bg-orange-500'
+            };
+        }
+
+        // Location Formatting
+        const locationText = (crisis.location && crisis.location !== 'Unknown Location') ? crisis.location : 'Global Region';
+        
+        // Time Formatting
+        const dateObj = new Date(crisis.created_at);
+        const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+        // Tag Generation
+        const tags = crisis.keywords.split(',').slice(0, 3).map(t => 
+            `<span class="text-[9px] font-mono bg-white/5 px-2 py-1 rounded text-gray-400 border border-white/10 uppercase tracking-wider">${t.trim()}</span>`
+        ).join('');
+
+        // Summary Logic: Prioritize the verdict summary, fallback to initial description
+        const displayText = crisis.verdict_summary || crisis.description || 'Agents are currently aggregating data streams...';
+
+        // --- CARD HTML CONSTRUCTION ---
+        card.className = `glass-panel p-6 rounded-2xl group cursor-pointer flex flex-col h-full relative overflow-hidden ${statusConfig.severityClass}`;
+        
+        card.innerHTML = `
+            <div class="flex justify-between items-start mb-4">
+                <span class="text-[9px] font-bold border px-2 py-1 rounded-md tracking-widest uppercase ${statusConfig.styleClass} flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full ${statusConfig.dotColor}"></span>
+                    ${statusConfig.word}
+                </span>
+                <span class="text-[9px] font-mono text-gray-500 flex items-center gap-1">
+                    ${timeStr}
+                </span>
             </div>
-        ` : '<p class="text-sm text-gray-400 mt-3 pt-3 border-t border-gray-100">No public sources available for this claim.</p>'}
-    `;
-    return card;
+
+            <div class="mb-3">
+                <h3 class="text-lg font-bold text-white group-hover:text-blue-400 transition-colors leading-tight mb-1">${crisis.name}</h3>
+                <div class="flex items-center gap-1 text-[10px] text-gray-400 font-mono uppercase tracking-wider">
+                    <svg class="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    ${locationText}
+                </div>
+            </div>
+
+            <p class="text-gray-400 text-xs leading-relaxed mb-6 line-clamp-3 font-light">
+                ${displayText}
+            </p>
+
+            <div class="mt-auto pt-4 border-t border-white/5 flex flex-wrap gap-2">
+                ${tags}
+            </div>
+            
+            <div class="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform group-hover:translate-x-1">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
 }
 
-/**
- * Fetches and renders the timeline with Adaptive Polling and Diffing Logic (Action 3).
- */
-async function loadTimeline() {
-    try {
-        // Show skeleton loaders if this is the initial load
-        if (currentTimelineItemIds.size === 0) {
-            skeletonContainer.classList.remove('hidden');
-            // Clear only if the skeleton is visible to prevent flash
-            if (timelineContainer.children.length > 0) timelineContainer.innerHTML = '';
+// --- AD HOC FORM LOGIC (Preserved & Optimized) ---
+if (adhocForm) {
+    adhocForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const queryText = adhocInput.value.trim();
+        if (queryText.length < 5) return;
+        
+        if (pollingInterval) clearInterval(pollingInterval);
+        
+        setLoading(true);
+        resultContainer.classList.add('hidden');
+        showFeedback('Deploying Agents...', 'info');
+        
+        try {
+            const initialRes = await api.startAdHocAnalysis(queryText);
+            pollAnalysis(initialRes.id);
+        } catch (error) {
+            showFeedback('Connection Failed', 'error');
+            setLoading(false);
         }
+    });
+}
 
-        const response = await fetch(`${API_BASE_URL}/crises/${CRISIS_ID}/timeline`);
-        if (!response.ok) throw new Error("Network response was not ok.");
-        
-        const newItems = await response.json();
-        const newItemIds = new Set(newItems.map(item => item.id));
-        const newlyAddedItems = [];
-        
-        // Diffing Logic: Check for new items to prepend and notify
-        newItems.forEach(item => {
-            if (!currentTimelineItemIds.has(item.id)) {
-                // Mark as new
-                newlyAddedItems.push(item);
-            }
-            // Keep track of which items are currently in the response
-            currentTimelineItemIds.add(item.id);
-        });
-
-        // Clear the old set and update with the latest IDs to ensure we track only current items
-        currentTimelineItemIds = newItemIds;
-        
-        // Remove the skeleton loaders once real data is present
-        skeletonContainer.classList.add('hidden');
-        
-        // --- Re-render/Update Logic ---
-        // We use a DocumentFragment to minimize DOM reflows during update/sort
-        const fragment = document.createDocumentFragment();
-        
-        // Use the fetched (and implicitly sorted by backend) list to re-order the cards
-        newItems.forEach(item => {
-            let element = document.getElementById(`timeline-item-${item.id}`);
+function pollAnalysis(analysisId) {
+    let attempts = 0;
+    pollingInterval = setInterval(async () => {
+        attempts++;
+        try {
+            const data = await api.getAdHocAnalysisStatus(analysisId);
             
-            if (element) {
-                // Item exists, detach it to re-attach later (for sorting)
-                fragment.appendChild(element);
+            if (data.status === 'COMPLETED' || data.status === 'FAILED') {
+                clearInterval(pollingInterval);
+                setLoading(false);
+                renderAdHocResult(data);
+                showFeedback('Mission Complete', 'success');
             } else {
-                // Item is new, create and add to fragment
-                element = createTimelineCard(item);
-                fragment.appendChild(element);
+                // Dynamic status updates based on time
+                const msg = attempts < 3 ? "Scanning Social Vectors..." : (attempts < 6 ? "Cross-referencing Media..." : "Synthesizing Verdict...");
+                showFeedback(msg, 'info');
             }
-        });
-
-        // Replace the timeline container content with the newly ordered fragment
-        timelineContainer.innerHTML = '';
-        // Since the API returns sorted data (newest first), appending them in order from the fragment 
-        // ensures the correct visual order in the DOM.
-        fragment.childNodes.forEach(child => {
-            timelineContainer.appendChild(child);
-        });
-        
-        // Send Toast Notifications for highly impactful new items (Action 6)
-        newlyAddedItems.forEach(item => {
-            const statusText = STATUS_COLORS[item.status].label;
-            const toastMessage = `NEW ${statusText}: ${item.summary.substring(0, 50)}...`;
-            showToast(toastMessage, item.status);
-        });
-        
-    } catch (error) {
-        console.error("Failed to load timeline:", error);
-        // Optionally show an error toast
-        if (currentTimelineItemIds.size === 0) {
-            skeletonContainer.innerHTML = `<p class="text-red-600 text-center p-8">Error loading data. Check API connection.</p>`;
+            
+            if (attempts >= 45) { 
+                clearInterval(pollingInterval); 
+                setLoading(false); 
+                showFeedback('Timeout: Agent unresponsive', 'error');
+            }
+        } catch (err) { 
+            clearInterval(pollingInterval); 
+            setLoading(false); 
         }
+    }, 2000); 
+}
+
+function renderAdHocResult(data) {
+    resultContainer.classList.remove('hidden');
+    
+    // Reset styling
+    badge.className = 'px-3 py-1 rounded-md text-[10px] font-bold font-mono uppercase border';
+    
+    if (data.status === 'FAILED') {
+        badge.classList.add('bg-red-900/20', 'text-red-500', 'border-red-500/50');
+        badge.innerText = 'SYSTEM FAILURE';
+        verdictText.innerText = "The verification pipeline encountered a critical error.";
+        return;
+    }
+
+    // Verdict Styling
+    const verdict = data.verdict_status || "UNCLEAR";
+    
+    if (verdict.includes('MISINFO') || verdict.includes('HOAX')) {
+        badge.classList.add('bg-purple-500/20', 'text-purple-300', 'border-purple-500/50', 'shadow-[0_0_10px_#9333ea]');
+        badge.innerText = '⚠️ HOAX CONFIRMED';
+    } else if (verdict.includes('VERIFIED') || verdict.includes('REAL')) {
+        badge.classList.add('bg-green-500/20', 'text-green-400', 'border-green-500/50');
+        badge.innerText = '✅ VERIFIED REAL';
+    } else {
+        badge.classList.add('bg-yellow-500/10', 'text-yellow-400', 'border-yellow-500/50');
+        badge.innerText = '❓ UNCONFIRMED';
+    }
+    
+    verdictText.innerText = data.verdict_summary;
+    sourcesList.innerHTML = '';
+    
+    if (data.verdict_sources?.length) {
+        data.verdict_sources.forEach(s => {
+            const li = document.createElement('li');
+            li.className = "flex items-center gap-2";
+            li.innerHTML = `
+                <svg class="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                <a href="${s.url}" target="_blank" class="text-blue-400 hover:text-white transition underline decoration-blue-500/30 underline-offset-4">${s.title}</a>
+            `;
+            sourcesList.appendChild(li);
+        });
+    } else {
+        sourcesList.innerHTML = '<li class="text-gray-600 italic">No public links available. Verdict based on internal logic.</li>';
     }
 }
 
-// --- Event Listeners and Initializers ---
+function renderErrorState() {
+    if (!grid) return;
+    grid.innerHTML = `
+        <div class="col-span-full text-center p-12 border border-red-900/30 rounded-2xl bg-red-900/10">
+            <p class="text-red-500 font-mono text-sm tracking-widest mb-2">⚠ CONNECTION LOST</p>
+            <p class="text-gray-400 text-xs">Backend uplink is offline. Retrying...</p>
+        </div>`;
+}
 
-// Modal Open/Close Logic
-submitClaimBtn.addEventListener('click', () => {
-    claimModal.classList.remove('hidden');
-    claimModal.classList.add('flex');
-    claimTextInput.focus();
-    submissionReceipt.classList.add('hidden'); // Reset receipt
-    claimTextInput.value = ''; // Clear input
-    verifyNowBtn.disabled = true; // Reset button state
-    charCountDisplay.classList.remove('text-green-500');
-    charCountDisplay.classList.add('text-red-500');
-    charCountDisplay.textContent = `0 / ${MIN_CLAIM_LENGTH} required`;
-});
+function showFeedback(msg, type) {
+    if (!formStatus) return;
+    formStatus.innerText = msg;
+    formStatus.className = `text-xs font-mono transition-opacity uppercase tracking-wider ${type==='error'?'text-red-500':'text-blue-400'}`;
+}
 
-cancelClaimBtn.addEventListener('click', () => {
-    claimModal.classList.add('hidden');
-    claimModal.classList.remove('flex');
-});
-
-// Client-Side Validation (Action 4)
-claimTextInput.addEventListener('input', () => {
-    const length = claimTextInput.value.length;
-    const isValid = length >= MIN_CLAIM_LENGTH;
-    verifyNowBtn.disabled = !isValid;
-    charCountDisplay.textContent = `${length} / ${MIN_CLAIM_LENGTH} required`;
-    
-    // Positive reinforcement UX
-    if (isValid) {
-        charCountDisplay.classList.remove('text-red-500');
-        charCountDisplay.classList.add('text-green-500');
+function setLoading(isLoading) {
+    if (!submitBtn) return;
+    submitBtn.disabled = isLoading;
+    if(isLoading) {
+        submitBtn.innerHTML = `<span class="animate-pulse">PROCESSING...</span>`;
     } else {
-        charCountDisplay.classList.remove('text-green-500');
-        charCountDisplay.classList.add('text-red-500');
+        submitBtn.innerHTML = `
+            <span class="relative z-10 flex items-center gap-2">
+                Initialize Scan
+                <svg class="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+            </span>`;
     }
-});
-
-// Claim Submission Handler (Action 4)
-claimForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const claimText = claimTextInput.value.trim();
-    if (claimText.length < MIN_CLAIM_LENGTH) return;
-
-    // Disable button and show loading state
-    verifyNowBtn.disabled = true;
-    verifyNowBtn.textContent = 'Submitting...';
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/crises/${CRISIS_ID}/submit-claim`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ claim_text: claimText })
-        });
-        
-        // --- START EDIT: Add enhanced logging for network failures ---
-        if (!response.ok) {
-            // Log detailed error information from the server response
-            const errorBody = await response.text();
-            console.error(`Submission failed. Status: ${response.status}. Status Text: ${response.statusText}. Response Body:`, errorBody);
-            throw new Error(`Submission failed. Status: ${response.status}`);
-        }
-        // --- END EDIT ---
-
-        const receipt = await response.json();
-        
-        // Immediate Acknowledgement UX
-        claimTextInput.style.display = 'none';
-        claimForm.querySelector('.flex').style.display = 'none';
-        
-        document.getElementById('receipt-id').textContent = receipt.id.substring(0, 8) + '...';
-        submissionReceipt.classList.remove('hidden');
-        
-        showToast(`Claim submitted! ID ${receipt.id.substring(0, 8)}. Status: PENDING.`, 'UNCONFIRMED');
-
-        // Reset modal after a delay
-        setTimeout(() => {
-            claimModal.classList.add('hidden');
-            claimModal.classList.remove('flex');
-            claimTextInput.style.display = 'block';
-            // Re-enable the flex container for buttons
-            const buttonContainer = claimForm.querySelector('.flex');
-            if (buttonContainer) buttonContainer.style.display = 'flex'; 
-            verifyNowBtn.textContent = 'VERIFY NOW';
-            
-            // Re-run validation logic to ensure proper button state after reset
-            claimTextInput.dispatchEvent(new Event('input')); 
-        }, 5000);
-
-    } catch (error) {
-        console.error("Claim submission failed (Catch Block):", error); // Log the full error object
-        verifyNowBtn.textContent = 'Failed. Retry?';
-        verifyNowBtn.disabled = false;
-        showToast(`Failed to submit claim: ${error.message}`, 'DEBUNKED');
-    }
-});
-
-
-// Initial Load and Adaptive Polling
-document.addEventListener('DOMContentLoaded', () => {
-    // Initial load
-    loadTimeline();
-    
-    // Adaptive Polling (Action 3)
-    setInterval(loadTimeline, POLL_INTERVAL_MS);
-});
+}
