@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timeline Analysis - Sentinel AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="antialiased min-h-screen flex flex-col selection:bg-blue-500/30 selection:text-blue-200">
+
+    <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+        <div class="absolute top-[10%] right-[-5%] w-[40vw] h-[40vw] bg-blue-900/10 rounded-full blur-[100px] opacity-30"></div>
+        <div class="absolute bottom-[10%] left-[-5%] w-[40vw] h-[40vw] bg-purple-900/10 rounded-full blur-[100px] opacity-20"></div>
+    </div>
+
+    <header class="sticky top-0 z-50 glass border-t-0 border-x-0 transition-all duration-300">
+        <div class="max-w-5xl mx-auto px-4 h-14 flex justify-between items-center">
+            <a href="index.html" class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-xs font-mono uppercase tracking-widest group">
+                <svg class="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                Return to Dashboard
+            </a>
+            <div class="flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_#22c55e]"></span>
+                <span class="text-[10px] text-green-400 font-mono uppercase tracking-widest">Live Uplink</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow w-full max-w-5xl mx-auto px-4 py-8">
+        
+        <section class="mb-8 animate-in">
+            <div id="conclusion-section" class="glass-panel p-8 rounded-2xl relative overflow-hidden group transition-all duration-500 border border-white/10">
+                <div id="conclusion-bg-pulse" class="absolute top-0 left-0 w-full h-1 bg-gray-700 transition-colors duration-500"></div>
+                
+                <div class="relative z-10 flex flex-col gap-6">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div id="conclusion-badge" class="px-4 py-1.5 rounded-md border text-[10px] font-bold font-mono uppercase tracking-widest transition-all duration-300 bg-gray-800 border-gray-700 text-gray-400">
+                            CALCULATING...
+                        </div>
+                        <span id="conclusion-updated-at" class="text-[10px] font-mono text-gray-500 uppercase tracking-widest opacity-70">Syncing...</span>
+                    </div>
+                    
+                    <div>
+                        <h1 id="crisis-name" class="text-3xl md:text-4xl font-black text-white mb-4 tracking-tight leading-tight">Loading Intelligence...</h1>
+                        <p id="conclusion-text" class="text-gray-300 text-sm md:text-base leading-relaxed font-light max-w-3xl border-l-2 border-white/10 pl-4">
+                            Sentinel AI is currently aggregating verified claims and cross-referencing data sources...
+                        </p>
+                        <p id="crisis-desc" class="hidden text-gray-500 text-xs font-mono mt-4 uppercase tracking-widest">
+                            </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="key-updates-section" class="mb-12 hidden animate-in delay-100">
+            <div class="flex items-center gap-3 mb-4 px-2">
+                <div class="h-px flex-grow bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                <h2 class="text-[10px] font-bold font-mono uppercase text-blue-400 tracking-[0.2em]">Latest Signals</h2>
+                <div class="h-px flex-grow bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+            </div>
+            <div id="key-updates-grid" class="grid sm:grid-cols-2 gap-4"></div>
+        </section>
+
+        <div class="relative animate-in delay-200">
+            
+            <div id="filter-container" class="sticky top-16 z-40 mb-8 backdrop-blur-md bg-black/20 border-y border-white/5 py-3 -mx-4 px-4">
+                <div class="flex items-center justify-between max-w-5xl mx-auto">
+                    <span class="text-[10px] font-medium text-gray-500 font-mono uppercase tracking-widest hidden sm:block">Timeline Stream</span>
+                    
+                    <div id="filter-buttons" class="flex gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto">
+                        <button class="filter-btn active px-4 py-1.5 rounded-full text-[10px] font-bold border border-white/20 bg-white text-black transition-all whitespace-nowrap hover:scale-105" data-filter="ALL">
+                            ALL INTEL
+                        </button>
+                        <button class="filter-btn px-4 py-1.5 rounded-full text-[10px] font-bold border border-transparent bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-all whitespace-nowrap hover:scale-105" data-filter="VERIFIED">
+                            VERIFIED
+                        </button>
+                        <button class="filter-btn px-4 py-1.5 rounded-full text-[10px] font-bold border border-transparent bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all whitespace-nowrap hover:scale-105" data-filter="DEBUNKED">
+                            DEBUNKED
+                        </button>
+                        <button class="filter-btn px-4 py-1.5 rounded-full text-[10px] font-bold border border-transparent bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 transition-all whitespace-nowrap hover:scale-105" data-filter="UNCONFIRMED">
+                            UNCONFIRMED
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="feed-container" class="relative min-h-[500px]">
+                <div class="absolute left-[19px] top-0 bottom-0 w-px bg-gradient-to-b from-blue-500/20 via-white/5 to-transparent"></div>
+
+                <div id="timeline-feed" class="space-y-8">
+                    <div class="pl-12 py-2">
+                        <div class="animate-pulse space-y-4 opacity-30">
+                            <div class="h-24 bg-gray-800 rounded-xl border border-gray-700 w-full"></div>
+                            <div class="h-24 bg-gray-800 rounded-xl border border-gray-700 w-3/4"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script type="module" src="js/timeline.js"></script>
+    
+    </body>
+</html>

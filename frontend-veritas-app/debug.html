@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel AI - System Diagnostics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #050505; color: white; font-family: 'Courier New', monospace; }
+        .log-line { border-bottom: 1px solid #1f2937; padding: 6px 0; font-size: 13px; }
+        .success { color: #4ade80; }
+        .error { color: #f87171; }
+        .info { color: #60a5fa; }
+        .warn { color: #facc15; }
+        .processing { color: #c084fc; }
+        .glass-panel { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); }
+    </style>
+</head>
+<body class="p-6 max-w-5xl mx-auto min-h-screen">
+
+    <header class="mb-10 flex justify-between items-end border-b border-gray-800 pb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-blue-500 mb-2">◆ Sentinel AI Diagnostics</h1>
+            <p class="text-gray-500 text-xs uppercase tracking-widest">System Integrity & Pipeline Validation Tool</p>
+        </div>
+        <button onclick="window.location.reload()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded text-xs text-white transition">
+            RESET DIAGNOSTICS
+        </button>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+        <div class="space-y-8">
+            
+            <section class="glass-panel p-6 rounded-xl">
+                <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 border-b border-gray-700 pb-2">1. Environment & Config</h2>
+                <div id="config-output" class="space-y-1"></div>
+            </section>
+
+            <section class="glass-panel p-6 rounded-xl">
+                <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 border-b border-gray-700 pb-2">2. API Connectivity</h2>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-gray-300 text-sm">Backend Health (/api/health)</span>
+                            <span id="status-health" class="text-[10px] bg-gray-800 px-2 py-1 rounded text-gray-500">PENDING</span>
+                        </div>
+                        <div id="log-health" class="p-2 bg-black/50 rounded text-xs text-gray-500 font-mono break-all border border-gray-800">Waiting...</div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-gray-300 text-sm">Database Read (/api/v1/crises)</span>
+                            <span id="status-db" class="text-[10px] bg-gray-800 px-2 py-1 rounded text-gray-500">PENDING</span>
+                        </div>
+                        <div id="log-db" class="p-2 bg-black/50 rounded text-xs text-gray-500 font-mono break-all border border-gray-800">Waiting...</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="space-y-8">
+            <section class="glass-panel p-6 rounded-xl border-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.05)]">
+                <h2 class="text-sm font-bold text-blue-400 uppercase tracking-wider mb-4 border-b border-blue-500/30 pb-2">3. Full Pipeline Test (Ad-Hoc)</h2>
+                <p class="text-xs text-gray-400 mb-4 leading-relaxed">
+                    This test simulates a user submission. It creates a database entry, triggers background agents, and polls for the result.
+                </p>
+
+                <div class="space-y-3">
+                    <label class="block text-[10px] text-gray-500 uppercase">Test Query</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="pipeline-input" value="Heavy floods reported in downtown Mumbai near Gateway of India" 
+                            class="w-full bg-black border border-gray-700 rounded px-3 py-2 text-xs text-white focus:border-blue-500 outline-none">
+                        <button id="btn-run-pipeline" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded transition whitespace-nowrap">
+                            RUN TEST
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-[10px] text-gray-500 uppercase">Transaction Log</span>
+                        <span id="pipeline-timer" class="text-[10px] font-mono text-gray-500">00.00s</span>
+                    </div>
+                    <div id="pipeline-console" class="h-64 overflow-y-auto bg-black border border-gray-800 rounded p-3 font-mono text-xs space-y-1">
+                        <span class="text-gray-600 italic">Ready to start...</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+    </div>
+
+    <script type="module">
+        // --- 1. CONFIGURATION ---
+        const output = document.getElementById('config-output');
+        const hostname = window.location.hostname;
+        const protocol = window.location.protocol;
+        
+        // Match logic from api.js
+        const IS_LOCAL = hostname === "localhost" || hostname === "127.0.0.1";
+        const API_BASE_URL = IS_LOCAL 
+            ? "http://localhost:8000/api/v1" 
+            : "https://YOUR_RAILWAY_URL.up.railway.app/api/v1"; 
+        const HEALTH_URL = IS_LOCAL 
+            ? "http://localhost:8000/api/health" 
+            : "https://YOUR_RAILWAY_URL.up.railway.app/api/health";
+
+        // --- UTILS ---
+        function log(container, msg, type="text-gray-300") {
+            const div = document.createElement('div');
+            div.className = `log-line ${type}`;
+            div.innerHTML = msg; // allow html
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function setStatus(id, text, type) {
+            const el = document.getElementById(id);
+            el.innerText = text;
+            el.className = `text-[10px] px-2 py-1 rounded font-bold ${type === 'success' ? 'bg-green-900/30 text-green-400' : type === 'error' ? 'bg-red-900/30 text-red-400' : 'bg-blue-900/30 text-blue-400'}`;
+        }
+
+        // --- RUN CHECKS ---
+        
+        // 1. Config Check
+        log(output, `Hostname: <span class="text-white">${hostname}</span>`);
+        log(output, `Mode: ${IS_LOCAL ? '<span class="success">LOCAL DEV</span>' : '<span class="warn">PRODUCTION</span>'}`);
+        log(output, `API Endpoint: <span class="text-gray-500">${API_BASE_URL}</span>`);
+        
+        if (protocol === 'file:') {
+            log(output, `⚠ WARNING: Running from local file system. APIs might fail due to CORS.`, 'warn');
+        }
+
+        // 2. Connectivity Checks
+        (async () => {
+            // Health
+            const logHealth = document.getElementById('log-health');
+            try {
+                const t0 = performance.now();
+                const res = await fetch(HEALTH_URL);
+                const t1 = performance.now();
+                const data = await res.json();
+                
+                logHealth.innerText = `OK (${Math.round(t1-t0)}ms) - ${JSON.stringify(data)}`;
+                logHealth.classList.add('text-green-500');
+                setStatus('status-health', 'ONLINE', 'success');
+            } catch (e) {
+                logHealth.innerText = `ERROR: ${e.message}`;
+                logHealth.classList.add('text-red-500');
+                setStatus('status-health', 'OFFLINE', 'error');
+            }
+
+            // DB / Crises
+            const logDb = document.getElementById('log-db');
+            try {
+                const res = await fetch(`${API_BASE_URL}/crises/`);
+                if(!res.ok) throw new Error(res.status);
+                const data = await res.json();
+                
+                const count = Array.isArray(data) ? data.length : 0;
+                logDb.innerText = `HTTP 200 - Found ${count} records`;
+                logDb.classList.add('text-green-500');
+                setStatus('status-db', 'CONNECTED', 'success');
+            } catch (e) {
+                logDb.innerText = `ERROR: ${e.message}`;
+                logDb.classList.add('text-red-500');
+                setStatus('status-db', 'ERROR', 'error');
+            }
+        })();
+
+        // --- 3. PIPELINE TEST LOGIC ---
+        const btnRun = document.getElementById('btn-run-pipeline');
+        const consoleDiv = document.getElementById('pipeline-console');
+        const input = document.getElementById('pipeline-input');
+        const timerDisplay = document.getElementById('pipeline-timer');
+
+        btnRun.onclick = async () => {
+            btnRun.disabled = true;
+            btnRun.classList.add('opacity-50', 'cursor-not-allowed');
+            consoleDiv.innerHTML = ''; // clear
+            
+            const query = input.value;
+            let timer = 0;
+            const timerInterval = setInterval(() => {
+                timer += 0.1;
+                timerDisplay.innerText = timer.toFixed(2) + 's';
+            }, 100);
+
+            try {
+                // STEP A: SUBMIT
+                log(consoleDiv, `[1] Submitting query: "${query}"...`, 'info');
+                
+                const postRes = await fetch(`${API_BASE_URL}/analyze`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query_text: query })
+                });
+
+                if (!postRes.ok) throw new Error(`POST failed: ${postRes.status}`);
+                const initData = await postRes.json();
+                
+                const analysisId = initData.id;
+                log(consoleDiv, `[2] Created Analysis ID: <span class="text-white">${analysisId}</span>`, 'success');
+                log(consoleDiv, `[2] Initial Status: ${initData.status}`, 'text-gray-500');
+
+                // STEP B: POLL
+                log(consoleDiv, `[3] Polling for results (Agents running)...`, 'processing');
+                
+                let attempts = 0;
+                const maxAttempts = 30; // 60 seconds max
+                
+                const poll = setInterval(async () => {
+                    attempts++;
+                    try {
+                        const getRes = await fetch(`${API_BASE_URL}/analyze/${analysisId}`);
+                        const currentData = await getRes.json();
+                        
+                        // Update log only if status changed or every 5 attempts
+                        if (currentData.status !== 'PENDING' && currentData.status !== 'PROCESSING') {
+                            clearInterval(poll);
+                            clearInterval(timerInterval);
+                            finishTest(currentData);
+                        } else {
+                            if (attempts % 2 === 0) {
+                                log(consoleDiv, `... Ping ${attempts} (${currentData.status})`, 'text-gray-600');
+                            }
+                        }
+
+                        if (attempts >= maxAttempts) {
+                            clearInterval(poll);
+                            clearInterval(timerInterval);
+                            log(consoleDiv, `[ERROR] Timeout waiting for agents.`, 'error');
+                            btnRun.disabled = false;
+                        }
+                    } catch (pollErr) {
+                        log(consoleDiv, `[POLL ERROR] ${pollErr.message}`, 'error');
+                    }
+                }, 2000);
+
+            } catch (e) {
+                clearInterval(timerInterval);
+                log(consoleDiv, `[FATAL] ${e.message}`, 'error');
+                btnRun.disabled = false;
+                btnRun.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        };
+
+        function finishTest(data) {
+            if (data.status === 'FAILED') {
+                log(consoleDiv, `[4] Pipeline FAILED. Check backend logs.`, 'error');
+            } else {
+                log(consoleDiv, `[4] PIPELINE SUCCESS!`, 'success');
+                log(consoleDiv, `Verdict: <strong class="text-white">${data.verdict_status}</strong>`, 'info');
+                log(consoleDiv, `Summary: ${data.verdict_summary}`, 'text-gray-300');
+                
+                if (data.verdict_sources && data.verdict_sources.length > 0) {
+                    log(consoleDiv, `Sources Found: ${data.verdict_sources.length}`, 'text-gray-300');
+                } else {
+                    log(consoleDiv, `Sources: 0 (This might be correct if no news found)`, 'warn');
+                }
+            }
+            
+            btnRun.disabled = false;
+            btnRun.classList.remove('opacity-50', 'cursor-not-allowed');
+            btnRun.innerText = "RUN AGAIN";
+        }
+    </script>
+</body>
+</html>
