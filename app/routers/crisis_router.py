@@ -67,6 +67,7 @@ async def run_adhoc_background_wrapper(analysis_id: UUID, raw_query_text: str):
 
 # --- Endpoints ---
 
+
 @router.get("/crises/", response_model=List[schemas.Crisis])
 async def read_crises(db: AsyncSession = Depends(get_db)):
     """

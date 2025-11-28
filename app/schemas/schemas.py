@@ -18,6 +18,7 @@ class AnalysisStatus(str, Enum):
 
 # --- 2. Crisis Schemas ---
 
+
 class CrisisBase(BaseModel):
     name: str
     description: Optional[str] = None
