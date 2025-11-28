@@ -247,10 +247,15 @@ claimForm.addEventListener('submit', async (e) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ claim_text: claimText })
         });
-
+        
+        // --- START EDIT: Add enhanced logging for network failures ---
         if (!response.ok) {
-            throw new Error("Submission failed. Server error.");
+            // Log detailed error information from the server response
+            const errorBody = await response.text();
+            console.error(`Submission failed. Status: ${response.status}. Status Text: ${response.statusText}. Response Body:`, errorBody);
+            throw new Error(`Submission failed. Status: ${response.status}`);
         }
+        // --- END EDIT ---
 
         const receipt = await response.json();
         
@@ -278,7 +283,7 @@ claimForm.addEventListener('submit', async (e) => {
         }, 5000);
 
     } catch (error) {
-        console.error("Claim submission failed:", error);
+        console.error("Claim submission failed (Catch Block):", error); // Log the full error object
         verifyNowBtn.textContent = 'Failed. Retry?';
         verifyNowBtn.disabled = false;
         showToast(`Failed to submit claim: ${error.message}`, 'DEBUNKED');
