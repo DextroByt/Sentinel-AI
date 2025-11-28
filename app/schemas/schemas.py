@@ -1,39 +1,74 @@
-from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional
+from pydantic import BaseModel, Field, UUID4, ConfigDict
+from typing import List, Optional, Dict, Any
 from datetime import datetime
-from uuid import UUID
-from app.db.models import VerificationStatusEnum
+from enum import Enum
 
-# 1. Source Evidence Schema
-# This handles the JSON structure for the "sources" column[cite: 83].
-class SourceMetadata(BaseModel):
-    url: str
-    source_name: str  # e.g., "NDTV", "Mumbai Police"
-    type: str         # "official", "media", "fact_check"
-    date_published: Optional[str] = None
+# --- 1. Enums ---
 
-# 2. Response Schema (What the UI receives)
-# This powers the "Veritas" dashboard cards[cite: 182].
-class TimelineItemResponse(BaseModel):
-    id: UUID
+class VerificationStatus(str, Enum):
+    VERIFIED = "VERIFIED"
+    DEBUNKED = "DEBUNKED"
+    UNCONFIRMED = "UNCONFIRMED"
+
+class AnalysisStatus(str, Enum):
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+# --- 2. Crisis Schemas ---
+
+class CrisisBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    keywords: str
+    severity: int = 50 
+    # [CHANGE] Added Location field to API model
+    location: Optional[str] = "Unknown Location"
+
+class Crisis(CrisisBase):
+    id: UUID4
+    verdict_status: Optional[str] = "PENDING" 
+    verdict_summary: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+# --- 3. Timeline Schemas ---
+
+class TimelineItem(BaseModel):
+    id: UUID4
+    crisis_id: UUID4
     claim_text: str
-    status: VerificationStatusEnum  # VERIFIED, DEBUNKED, UNCONFIRMED
-    summary: Optional[str] = None
-    sources: List[SourceMetadata] = []
+    summary: str
+    status: VerificationStatus
+    # [CHANGE] Added Location field to API model
+    location: Optional[str] = None
+    sources: Optional[List[Dict[str, Any]]] = []
     timestamp: datetime
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        from_attributes = True
+# --- 4. User Defined Crisis / Ad Hoc Analysis Schemas ---
 
-# 3. Manual Submission Schema
-# Used when a user clicks "VERIFY NOW" on the frontend[cite: 217].
-class ClaimSubmission(BaseModel):
-    claim_text: str
+class AdHocAnalysisRequest(BaseModel):
+    query_text: str = Field(..., min_length=5, description="The user defined crisis topic or claim to verify.")
 
-    # STRICT VALIDATION: The blueprint requires a minimum of 10 characters
-    # to prevent spam (e.g., "fake news").
-    @field_validator('claim_text')
-    def check_length(cls, v):
-        if len(v.strip()) < 10:
-            raise ValueError('Claim must be at least 10 characters long.')
-        return v
+class AdHocAnalysisResponse(BaseModel):
+    id: UUID4
+    query_text: str
+    status: AnalysisStatus
+    verdict_status: Optional[str] = None
+    verdict_summary: Optional[str] = None
+    verdict_sources: Optional[List[Dict[str, Any]]] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+# --- 5. Notification Schemas ---
+
+class SystemNotification(BaseModel):
+    id: UUID4
+    content: str
+    notification_type: str # "MISINFO_ALERT", "CRITICAL_UPDATE"
+    crisis_id: Optional[UUID4] = None 
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
