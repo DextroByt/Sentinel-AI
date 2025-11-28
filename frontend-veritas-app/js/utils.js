@@ -41,7 +41,7 @@ export function formatTime(isoString) {
 
 /**
  * Centralized Style Logic for Badges & Status Indicators.
- * Aligning with the Neon/Glass theme.
+ * Aligning with the "Silent Analyst" theme.
  */
 export function getStatusClasses(status) {
     const s = status ? status.toUpperCase() : 'UNCONFIRMED';
@@ -89,18 +89,21 @@ export function getStatusClasses(status) {
             };
         case 'FAILED':
             return {
-                text: 'text-gray-400',
-                bg: 'bg-gray-500',
+                text: 'text-gray-500',
+                bg: 'bg-gray-600',
                 bgText: 'bg-gray-500/10 border-gray-500/20',
                 label: 'ERROR'
             };
+        
+        // [UPDATED] "Unconfirmed" is now "Evaluating" (The Silent Analyst)
         case 'UNCONFIRMED':
         default:
             return {
-                text: 'text-yellow-400',
-                bg: 'bg-yellow-500',
-                bgText: 'bg-yellow-500/10 border-yellow-500/20',
-                label: 'UNCONFIRMED'
+                // Neutral Gray Theme - "Background Process" look
+                text: 'text-gray-400', 
+                bg: 'bg-gray-600', 
+                bgText: 'bg-white/5 border-white/5', 
+                label: 'EVALUATING' 
             };
     }
 }

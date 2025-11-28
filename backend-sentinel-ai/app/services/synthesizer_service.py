@@ -21,10 +21,10 @@ except Exception as e:
 
 # --- Prompts ---
 
-# [UPDATED] Focused on Truth vs. Fiction & Harm Potential
+# [UPDATED] Added Confidence Scoring & Reasoning Trace Logic
 SYNTHESIS_PROMPT_TEMPLATE = """
 You are the Chief Misinformation Analyst for Sentinel AI. 
-Your task is to analyze a specific claim based ONLY on the provided evidence and determine its veracity and potential for harm.
+Your task is to analyze a specific claim based ONLY on the provided evidence and determine its veracity, potential for harm, and a quantitative confidence score.
 
 CURRENT TIME: {current_time}
 
@@ -42,7 +42,11 @@ EVIDENCE COLLECTED:
 
 CRITICAL INSTRUCTIONS:
 1. **DETECT ZOMBIE RUMORS:** Check if the evidence mentions this is an "old video", "recycled image", or "out of context" content from a previous year.
-2. **ASSESS HARM:** If the claim is false, is it dangerous? (e.g., fake cures, inciting violence, nuclear panic).
+2. **SCORING RULES (Confidence Score 0-100):**
+   - **90-100**: Direct denial/confirmation from Official Govt Source OR Primary Video Evidence.
+   - **75-89**: Multiple Reliable Media Outlets (Reuters, NDTV, BBC) report the same facts.
+   - **50-74**: Single reliable source OR conflicting details in mainstream media.
+   - **0-49**: Social media only, viral echoes, or no reliable data found.
 3. **VERDICT LOGIC:**
    - Status "VERIFIED": Multiple credible sources confirm the event is REAL and CURRENT.
    - Status "DEBUNKED": Official sources deny it, OR fact-checkers label it fake, OR it is proven to be old footage.
@@ -52,14 +56,16 @@ OUTPUT REQUIREMENT:
 Return a single, valid JSON object with this exact structure:
 {{
   "status": "VERIFIED" | "DEBUNKED" | "UNCONFIRMED",
-  "summary": "A concise 2-sentence explanation. If DEBUNKED, explain WHY (e.g., 'This is a 2018 video from Syria, not Mumbai.').",
+  "confidence_score": <int>,
+  "reasoning_trace": "A single technical sentence explaining the score (e.g. 'Matched official police denial via Twitter API').",
+  "summary": "A concise 2-sentence explanation. If DEBUNKED, explain WHY.",
   "sources": [
     {{ "title": "Source Name", "url": "URL" }}
   ]
 }}
 """
 
-# [UPDATED] Master Conclusion now distinguishes Real Disasters vs. Lethal Hoaxes
+# [UPDATED] Master Conclusion
 CRISIS_CONCLUSION_PROMPT = """
 You are the Strategic Threat Analyst for Sentinel AI.
 Your task is to generate a "Live Threat Assessment" for an active narrative.
@@ -80,13 +86,10 @@ UNCONFIRMED REPORTS (Noise):
 INSTRUCTIONS:
 1. **LETHALITY CHECK:** Does this narrative pose a threat to life? (e.g., Riots, Floods, Medical Panics).
 2. **DETERMINE MASTER VERDICT:**
-   - "CATASTROPHIC EMERGENCY": A REAL, verified event with mass casualties or destruction (e.g., Actual Earthquake).
-   - "LETHAL MISINFORMATION": A FAKE narrative causing mass panic (e.g., "Fake Nuclear Leak", "False Riot Alarm").
-   - "CONFIRMED SITUATION": A real but contained event (e.g., Traffic Blockade, Weather Alert).
+   - "CATASTROPHIC EMERGENCY": A REAL, verified event with mass casualties or destruction.
+   - "LETHAL MISINFORMATION": A FAKE narrative causing mass panic.
+   - "CONFIRMED SITUATION": A real but contained event.
    - "DEVELOPING NARRATIVE": Too much noise/unconfirmed data to judge yet.
-3. **WRITE THE SUMMARY:**
-   - If MISINFORMATION: Start with "DO NOT PANIC. This is a FALSE ALARM." Explain the origin of the lie.
-   - If REAL EMERGENCY: Start with "URGENT SAFETY ALERT." Give the confirmed status.
 
 OUTPUT REQUIREMENT:
 Return a single, valid JSON object with this exact structure:
@@ -154,9 +157,15 @@ async def synthesize_evidence(
         except json.JSONDecodeError:
             result = {
                 "status": "UNCONFIRMED",
+                "confidence_score": 0,
+                "reasoning_trace": "Synthesizer failed to parse evidence.",
                 "summary": "System error during verification synthesis.",
                 "sources": []
             }
+
+        # [NEW] Extract Trust Metrics
+        confidence_score = result.get("confidence_score", 0)
+        reasoning_trace = result.get("reasoning_trace", "Analysis completed.")
 
         # --- BRANCHING LOGIC ---
         if adhoc_analysis_id:
@@ -170,13 +179,15 @@ async def synthesize_evidence(
                 item_id=timeline_item_id,
                 status=result.get("status", "UNCONFIRMED"),
                 summary=result.get("summary", ""),
-                sources=result.get("sources", [])
+                sources=result.get("sources", []),
+                confidence_score=confidence_score,  # [NEW]
+                reasoning_trace=reasoning_trace     # [NEW]
             )
-            logger.info(f"Updated existing TimelineItem {timeline_item_id} with status {result.get('status')}")
+            logger.info(f"Updated existing TimelineItem {timeline_item_id} with score {confidence_score}")
             return result
 
         if crisis_id:
-            # Create new timeline item with location
+            # Create new timeline item with location & trust metrics
             await crud.create_timeline_item(
                 db=db,
                 crisis_id=crisis_id,
@@ -184,7 +195,9 @@ async def synthesize_evidence(
                 summary=result.get("summary", ""),
                 status=result.get("status", "UNCONFIRMED"),
                 sources=result.get("sources", []),
-                location=location
+                location=location,
+                confidence_score=confidence_score,  # [NEW]
+                reasoning_trace=reasoning_trace     # [NEW]
             )
             return result
 

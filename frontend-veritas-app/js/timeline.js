@@ -52,7 +52,6 @@ async function loadCrisisDetails() {
         }
     } catch (e) { 
         console.error("Failed to load crisis details", e); 
-        showToast("Lost connection to Intelligence Core.", "error");
     }
 }
 
@@ -61,7 +60,6 @@ async function loadTimeline() {
         const items = await api.getTimeline(state.crisisId);
         
         // Simple diff to avoid re-rendering DOM if data hasn't changed
-        // (Checks length + ID of newest item)
         if (items.length !== state.items.length || (items.length > 0 && items[0].id !== state.items[0]?.id)) {
             state.items = items;
             renderKeyUpdates(items);
@@ -208,6 +206,43 @@ function renderTimeline() {
                </span>`
             : ``;
 
+        // --- TRUST METER LOGIC ---
+        // 1. Calculate Confidence Color
+        let score = item.confidence_score || 0;
+        let barColor = 'bg-gray-600';
+        let barGlow = '';
+        
+        if (score >= 90) {
+            barColor = 'bg-green-500';
+            barGlow = 'shadow-[0_0_10px_#22c55e]';
+        } else if (score >= 70) {
+            barColor = 'bg-blue-500';
+            barGlow = 'shadow-[0_0_8px_#3b82f6]';
+        } else if (score >= 50) {
+            barColor = 'bg-yellow-500';
+        }
+
+        // 2. Generate Reasoning Trace HTML
+        const trustMeterHtml = `
+            <div class="mt-4 mb-3 pt-3 border-t border-white/5">
+                <div class="flex justify-between items-end mb-1">
+                    <span class="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Confidence Index</span>
+                    <span class="text-[10px] font-bold font-mono text-white">${score}%</span>
+                </div>
+                
+                <div class="w-full bg-black/50 h-1.5 rounded-full overflow-hidden border border-white/5">
+                    <div class="${barColor} ${barGlow} h-full rounded-full transition-all duration-1000 ease-out" style="width: ${score}%"></div>
+                </div>
+                
+                <div class="flex items-start gap-2 mt-2 group/trace">
+                    <span class="text-[9px] text-gray-600 font-mono uppercase mt-0.5">Trace:</span>
+                    <p class="text-[9px] text-gray-500 font-mono leading-relaxed hover:text-gray-300 transition-colors cursor-help">
+                        ${item.reasoning_trace || "Calculating signal strength..."}
+                    </p>
+                </div>
+            </div>
+        `;
+
         // Source Links Logic
         let sourceHtml = '';
         if (item.sources && item.sources.length > 0) {
@@ -218,13 +253,13 @@ function renderTimeline() {
             }).join('<span class="mx-2 text-gray-700">/</span>');
             
             sourceHtml = `
-                <div class="mt-4 pt-3 border-t border-white/5 flex flex-wrap items-center text-[9px] font-mono uppercase tracking-wider text-gray-500">
+                <div class="mt-2 flex flex-wrap items-center text-[9px] font-mono uppercase tracking-wider text-gray-500">
                     <span class="mr-2 text-gray-600">Sources:</span>
                     ${links}
                 </div>`;
         }
 
-        // Severity Glow Logic (Matches CSS)
+        // Severity Glow Logic
         let severityClass = 'severity-low';
         if (item.status === 'DEBUNKED') severityClass = 'severity-hoax';
         if (item.status === 'CATASTROPHIC EMERGENCY' || item.summary.toLowerCase().includes('danger')) severityClass = 'severity-high';
@@ -253,6 +288,7 @@ function renderTimeline() {
                         ${item.summary}
                     </p>
 
+                    ${trustMeterHtml}
                     ${sourceHtml}
                 </div>
             </div>`;
@@ -271,8 +307,6 @@ function setupFilters() {
             buttons.forEach(b => {
                 b.classList.remove('active', 'bg-white', 'text-black', 'border-white/20');
                 b.classList.add('text-gray-400', 'border-transparent', 'hover:bg-white/5');
-                // Restore specific color hovers if needed based on data-filter logic manually, 
-                // but simplifying to neutral inactive state usually looks cleaner.
             });
 
             // Activate target

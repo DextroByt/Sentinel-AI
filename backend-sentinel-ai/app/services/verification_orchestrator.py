@@ -28,7 +28,7 @@ except Exception as e:
 class VerificationState(TypedDict):
     """
     The shared memory for the Agentic Workflow.
-    Now includes 'retry_count' and 'search_query' for adaptive behavior.
+    Now includes Trust Metrics (confidence_score) for observability.
     """
     claim_text: str         # The original claim
     current_query: str      # The actual query being used (can change!)
@@ -43,6 +43,10 @@ class VerificationState(TypedDict):
     official_evidence: List[str]
     media_evidence: List[str]
     debunk_evidence: List[str]
+    
+    # [NEW] Trust Metrics (Passed from Synthesizer)
+    confidence_score: int
+    reasoning_trace: str
     
     # Meta-Cognition
     retry_count: int
@@ -152,7 +156,7 @@ async def node_query_refiner(state: VerificationState):
 async def node_synthesizer(state: VerificationState):
     """Final Verdict Generation."""
     try:
-        await synthesizer_service.synthesize_evidence(
+        result = await synthesizer_service.synthesize_evidence(
             db=state["db_session"],
             claim=state["claim_text"],
             official=state.get("official_evidence", []),
@@ -163,6 +167,13 @@ async def node_synthesizer(state: VerificationState):
             timeline_item_id=state.get("timeline_item_id"),
             location=state.get("location", "Unknown")
         )
+        
+        # [NEW] Capture the score in the state for potential future logic
+        return {
+            "confidence_score": result.get("confidence_score", 0),
+            "reasoning_trace": result.get("reasoning_trace", "Processed")
+        }
+        
     except Exception as e:
         logger.error(f"[Orchestrator] Synthesizer Failed: {e}")
     return state
@@ -249,6 +260,8 @@ async def run_verification_pipeline(
         "official_evidence": [],
         "media_evidence": [],
         "debunk_evidence": [],
+        "confidence_score": 0, # [NEW]
+        "reasoning_trace": "", # [NEW]
         "retry_count": 0,
         "status": "STARTING"
     }

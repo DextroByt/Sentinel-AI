@@ -18,13 +18,11 @@ class AnalysisStatus(str, Enum):
 
 # --- 2. Crisis Schemas ---
 
-
 class CrisisBase(BaseModel):
     name: str
     description: Optional[str] = None
     keywords: str
     severity: int = 50 
-    # [CHANGE] Added Location field to API model
     location: Optional[str] = "Unknown Location"
 
 class Crisis(CrisisBase):
@@ -43,9 +41,13 @@ class TimelineItem(BaseModel):
     claim_text: str
     summary: str
     status: VerificationStatus
-    # [CHANGE] Added Location field to API model
     location: Optional[str] = None
     sources: Optional[List[Dict[str, Any]]] = []
+    
+    # [NEW] Trust Architecture: AI Confidence & Logic
+    confidence_score: int = 0
+    reasoning_trace: Optional[str] = "Analysis pending..."
+    
     timestamp: datetime
     model_config = ConfigDict(from_attributes=True)
 
@@ -61,6 +63,11 @@ class AdHocAnalysisResponse(BaseModel):
     verdict_status: Optional[str] = None
     verdict_summary: Optional[str] = None
     verdict_sources: Optional[List[Dict[str, Any]]] = None
+    
+    # [NEW] Trust Architecture for User Reports
+    confidence_score: int = 0
+    reasoning_trace: Optional[str] = "Analysis pending..."
+
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
@@ -69,7 +76,7 @@ class AdHocAnalysisResponse(BaseModel):
 class SystemNotification(BaseModel):
     id: UUID4
     content: str
-    notification_type: str # "MISINFO_ALERT", "CRITICAL_UPDATE"
+    notification_type: str 
     crisis_id: Optional[UUID4] = None 
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)

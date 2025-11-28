@@ -33,7 +33,6 @@ class Crisis(Base):
     description = Column(Text)
     keywords = Column(Text, nullable=False)
     severity = Column(Integer, default=50) 
-    # [CHANGE] Added Location
     location = Column(Text, nullable=True, default="Unknown Location")
     
     verdict_status = Column(String, default="PENDING")
@@ -50,9 +49,13 @@ class TimelineItem(Base):
     claim_text = Column(Text, nullable=False, unique=True)
     summary = Column(Text, nullable=False)
     status = Column(PgEnum(VerificationStatusEnum, name="VerificationStatusEnum", create_type=True), nullable=False)
-    # [CHANGE] Added Location
     location = Column(Text, nullable=True)
     sources = Column(JSON)
+    
+    # [NEW] Trust Metrics
+    confidence_score = Column(Integer, default=0)
+    reasoning_trace = Column(Text, nullable=True)
+    
     timestamp = Column(DateTime, default=datetime.utcnow)
 
 class AdHocAnalysis(Base):
@@ -61,9 +64,15 @@ class AdHocAnalysis(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     query_text = Column(Text, nullable=False)
     status = Column(PgEnum(AnalysisStatusEnum, name="AnalysisStatusEnum", create_type=True), nullable=False, default=AnalysisStatusEnum.PENDING)
+    
     verdict_status = Column(String, nullable=True) 
     verdict_summary = Column(Text, nullable=True)
     verdict_sources = Column(JSON, nullable=True)
+    
+    # [NEW] Trust Metrics
+    confidence_score = Column(Integer, default=0)
+    reasoning_trace = Column(Text, nullable=True)
+    
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class SystemNotification(Base):
@@ -78,15 +87,12 @@ class SystemNotification(Base):
 # --- 3. CRUD Functions ---
 
 async def create_crisis(db: AsyncSession, name: str, description: str, keywords: str, severity: int, location: str = "Unknown") -> Crisis:
-    """
-    Autonomously creates a new crisis entry with severity score and location.
-    """
     db_obj = Crisis(
         name=name,
         description=description,
         keywords=keywords,
         severity=severity,
-        location=location, # [CHANGE]
+        location=location, 
         verdict_status="PENDING",
         verdict_summary="Initial assessment in progress. Sentinel AI is aggregating claims..."
     )
@@ -146,7 +152,7 @@ async def get_unconfirmed_timeline_items(db: AsyncSession, limit: int = 10) -> L
     )
     return result.scalars().all()
 
-async def update_timeline_item(db: AsyncSession, item_id: uuid.UUID, status: str, summary: str, sources: List[Any]) -> Optional[TimelineItem]:
+async def update_timeline_item(db: AsyncSession, item_id: uuid.UUID, status: str, summary: str, sources: List[Any], confidence_score: int = 0, reasoning_trace: str = None) -> Optional[TimelineItem]:
     result = await db.execute(select(TimelineItem).where(TimelineItem.id == item_id))
     item = result.scalar_one_or_none()
     if item:
@@ -154,17 +160,40 @@ async def update_timeline_item(db: AsyncSession, item_id: uuid.UUID, status: str
         item.status = status_enum
         item.summary = summary
         item.sources = sources
+        # [UPDATE] Storing Trust Metrics
+        item.confidence_score = confidence_score
+        item.reasoning_trace = reasoning_trace
+        
         item.timestamp = datetime.utcnow()
         await db.commit()
         await db.refresh(item)
     return item
 
-async def create_timeline_item(db: AsyncSession, crisis_id: uuid.UUID, claim_text: str, summary: str, status: str | VerificationStatusEnum, sources: List[Any], location: str = None) -> Optional[TimelineItem]:
+async def create_timeline_item(
+    db: AsyncSession, 
+    crisis_id: uuid.UUID, 
+    claim_text: str, 
+    summary: str, 
+    status: str | VerificationStatusEnum, 
+    sources: List[Any], 
+    location: str = None,
+    confidence_score: int = 0, # [NEW]
+    reasoning_trace: str = None # [NEW]
+) -> Optional[TimelineItem]:
     existing = await get_timeline_item_by_claim_text(db, claim_text)
     if existing: return existing
     status_enum = VerificationStatusEnum(status) if isinstance(status, str) else status
-    # [CHANGE] Added location to insert
-    item = TimelineItem(crisis_id=crisis_id, claim_text=claim_text, summary=summary, status=status_enum, sources=sources, location=location)
+    
+    item = TimelineItem(
+        crisis_id=crisis_id, 
+        claim_text=claim_text, 
+        summary=summary, 
+        status=status_enum, 
+        sources=sources, 
+        location=location,
+        confidence_score=confidence_score,
+        reasoning_trace=reasoning_trace
+    )
     db.add(item)
     await db.commit()
     await db.refresh(item)
@@ -192,11 +221,13 @@ async def update_adhoc_analysis(db: AsyncSession, analysis_id: uuid.UUID, status
             obj.verdict_status = verdict.get("status")
             obj.verdict_summary = verdict.get("summary")
             obj.verdict_sources = verdict.get("sources")
+            # [NEW] Saving Trust Metrics
+            obj.confidence_score = verdict.get("confidence_score", 0)
+            obj.reasoning_trace = verdict.get("reasoning_trace", "Analysis pending...")
+            
         await db.commit()
         await db.refresh(obj)
     return obj
-
-# --- Notification Management ---
 
 async def create_notification(db: AsyncSession, content: str, type: str = "MISINFO_ALERT", crisis_id: Optional[uuid.UUID] = None) -> SystemNotification:
     obj = SystemNotification(content=content, notification_type=type, crisis_id=crisis_id)
@@ -212,8 +243,6 @@ async def get_latest_notification(db: AsyncSession) -> Optional[SystemNotificati
         .limit(1)
     )
     return result.scalar_one_or_none()
-
-# --- Cleanup Logic ---
 
 async def delete_old_crises(db: AsyncSession, days_retention: int = 3):
     cutoff_date = datetime.utcnow() - timedelta(days=days_retention)

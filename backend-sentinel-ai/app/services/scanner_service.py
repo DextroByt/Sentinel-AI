@@ -3,6 +3,7 @@ import logging
 import json
 import time
 import re
+import warnings
 from datetime import datetime, timezone
 from typing import List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,9 @@ from app.services import verification_orchestrator
 from app.services import rss_service
 from app.services import synthesizer_service 
 from app.schemas.schemas import VerificationStatus
+
+# Suppress annoying "package renamed" warnings from DDGS
+warnings.filterwarnings("ignore", category=RuntimeWarning, module="duckduckgo_search")
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +39,26 @@ try:
 except Exception as e:
     logger.error(f"Failed to configure Gemini: {e}")
 
+
+# --- UTILS: Robust Search Wrapper ---
+
+def _safe_ddg_text_search(query: str, max_results: int = 5, retries: int = 3) -> List[Dict]:
+    """
+    Wraps DDGS text search with retries and exponential backoff.
+    Prevents 'Operation Timed Out' from crashing the scanner.
+    """
+    for attempt in range(retries):
+        try:
+            with DDGS() as ddgs:
+                # safesearch='off' is needed to find raw rumors/uncensored news
+                return list(ddgs.text(query, region="wt-wt", safesearch="off", timelimit="d", max_results=max_results))
+        except Exception as e:
+            wait_time = 2 ** attempt # 1s, 2s, 4s...
+            logger.warning(f"[Scanner] DDGS Search Warning (Attempt {attempt+1}/{retries}): {e}. Retrying in {wait_time}s...")
+            time.sleep(wait_time)
+            
+    logger.error(f"[Scanner] DDGS Search FAILED after {retries} attempts for query: '{query[:20]}...'")
+    return []
 
 # --- PHASE 1: THREAT DISCOVERY ---
 
@@ -64,20 +88,19 @@ def _perform_social_listening() -> List[Dict]:
         '"fake news" alert site:twitter.com'
     ]
     results = []
-    try:
-        with DDGS() as ddgs:
-            for q in social_queries:
-                hits = list(ddgs.text(q, region="wt-wt", safesearch="off", timelimit="d", max_results=5))
-                for h in hits:
-                    results.append({
-                        "title": h.get('title', 'Social Rumor'),
-                        "description": h.get('body', ''),
-                        "url": h.get('href', ''),
-                        "source": {"name": "Social Signal", "type": "SOCIAL"},
-                        "published_at": "Just Now"
-                    })
-    except Exception as e:
-        logger.warning(f"Social listening scan failed: {e}")
+    
+    # We loop through queries sequentially here, but the search itself is robust now.
+    for q in social_queries:
+        hits = _safe_ddg_text_search(q, max_results=5)
+        for h in hits:
+            results.append({
+                "title": h.get('title', 'Social Rumor'),
+                "description": h.get('body', ''),
+                "url": h.get('href', ''),
+                "source": {"name": "Social Signal", "type": "SOCIAL"},
+                "published_at": "Just Now"
+            })
+            
     return results
 
 async def analyze_and_assess_threats(db: AsyncSession, articles: List[Dict]):
@@ -85,10 +108,18 @@ async def analyze_and_assess_threats(db: AsyncSession, articles: List[Dict]):
     Analyzes headlines and creates Crisis entries.
     RETURNS: A list of newly created Crisis objects.
     """
-    new_crises = [] # Track newly created items
+    new_crises = [] 
     
     if not articles: return []
-    articles = articles[:80] 
+    # Deduplicate by URL before processing
+    seen_urls = set()
+    unique_articles = []
+    for a in articles:
+        if a['url'] not in seen_urls:
+            seen_urls.add(a['url'])
+            unique_articles.append(a)
+            
+    articles = unique_articles[:60] # Limit input to avoid token overflow
 
     headlines = []
     for a in articles:
@@ -147,7 +178,6 @@ async def analyze_and_assess_threats(db: AsyncSession, articles: List[Dict]):
             severity = int(c_data.get("severity", 50))
             loc = c_data.get("location", "Unknown Location")
             
-            # PRINT to Console for Visibility
             print(f"🚨 [SCANNER] New Threat Detected: {name} ({loc})")
             logger.info(f"[Discovery] 🚨 NEW CANDIDATE: {name} ({loc})")
             
@@ -156,7 +186,6 @@ async def analyze_and_assess_threats(db: AsyncSession, articles: List[Dict]):
                 keywords=c_data.get("keywords", name), severity=severity, location=loc 
             )
             
-            # Add to list for notification logic
             new_crises.append(new_crisis)
 
             await crud.create_timeline_item(
@@ -166,7 +195,9 @@ async def analyze_and_assess_threats(db: AsyncSession, articles: List[Dict]):
                 summary=f"Sentinel AI picked up this signal from web chatter. Automated verification agents have been deployed.",
                 status=VerificationStatus.UNCONFIRMED,
                 sources=[{"title": "Sentinel Watchdog", "url": "#"}],
-                location=loc
+                location=loc,
+                confidence_score=10, # Initial low confidence
+                reasoning_trace="Automated signal detection. Awaiting deep scan."
             )
 
             asyncio.create_task(
@@ -193,7 +224,6 @@ async def perform_agentic_selection(db: AsyncSession):
     """
     THE BRAIN: Agent reviews ALL candidates and picks the Strategic Top 10.
     """
-    print("🧠 [SCANNER] Agentic Brain is prioritizing active threats...")
     logger.info("[Agent Selection] 🧠 Reviewing all candidates for prioritization...")
     
     all_crises = await crud.get_crises(db, limit=100)
@@ -262,17 +292,15 @@ async def _fallback_pruning(db: AsyncSession):
 async def run_discovery_phase(db: AsyncSession):
     logger.info(">>> PHASE 1: THREAT DISCOVERY (High Throughput) <<<")
     
-    # --- CRITICAL FIX: rss_service.fetch_all_rss_feeds IS ALREADY ASYNC ---
-    # Do NOT use asyncio.to_thread for async functions.
+    # Run RSS Fetch (Already Async)
     rss_coro = rss_service.fetch_all_rss_feeds()
     
-    # Social listening IS synchronous, so we use to_thread
+    # Run Social Listening (Sync wrapped in Thread)
     social_task = asyncio.to_thread(_perform_social_listening)
     
-    # Run both concurrently
+    # Run concurrently
     results = await asyncio.gather(rss_coro, social_task)
     
-    # results[0] is RSS list, results[1] is Social list
     all_items = results[0] + results[1] 
     
     print(f"🔍 [SCANNER] Scanned {len(all_items)} raw signals.")
@@ -290,15 +318,28 @@ async def run_discovery_phase(db: AsyncSession):
 
 def _perform_hybrid_search(keywords: str) -> List[Dict]:
     results = []
+    # Try getting news
     try:
         with DDGS() as ddgs:
-            news = list(ddgs.news(keywords, region="wt-wt", safesearch="off", timelimit="w", max_results=3))
-            results.extend(news)
-            web = list(ddgs.text(keywords, region="wt-wt", safesearch="off", timelimit="w", max_results=3))
-            for w in web:
-                results.append({"title": w['title'], "body": w['body'], "url": w['href']})
+             news = list(ddgs.news(keywords, region="wt-wt", safesearch="off", timelimit="w", max_results=3))
+             results.extend(news)
     except Exception: pass
-    return results
+    
+    # Try getting web text
+    if len(results) < 2:
+        try:
+             results.extend(_safe_ddg_text_search(keywords, max_results=3))
+        except Exception: pass
+        
+    # Standardize
+    final = []
+    for r in results:
+        final.append({
+            "title": r.get('title', 'Unknown'), 
+            "body": r.get('body', r.get('description', '')), 
+            "url": r.get('href', r.get('url', ''))
+        })
+    return final
 
 async def process_single_crisis_task(crisis_id: str):
     async with database.AsyncSessionLocal() as db:
@@ -319,12 +360,15 @@ async def process_single_crisis_task(crisis_id: str):
                     
                     for claim_obj in claims_data:
                         claim_text = claim_obj["text"]
+                        # Check duplicates
                         if await crud.get_timeline_item_by_claim_text(db, claim_text): continue
                         
                         await verification_orchestrator.run_verification_pipeline(
                             db_session=db, claim_text=claim_text, 
                             crisis_id=crisis.id, location=claim_obj["location"] 
                         )
+            
+            # Synthesize verdict after deep scan
             await synthesizer_service.synthesize_crisis_conclusion(db, crisis.id)
         except Exception as e: logger.error(f"Worker Error: {e}")
 
@@ -369,59 +413,46 @@ async def run_deep_gathering_phase(db: AsyncSession, duration_seconds: int):
 # --- MAIN LOOP ---
 
 async def start_monitoring():
-    print("\n--- Sentinel AI Supervisor Started (Autonomous Mode) ---\n")
     logger.info("--- Sentinel AI Supervisor Started (Autonomous Mode) ---")
     
-    # [LOGIC] Track if this is the first cycle to send a Summary Notification
     is_first_run = True
     
     while True:
         cycle_start = time.time()
         
         # 1. DISCOVERY
-        print(">>> STARTING DISCOVERY PHASE")
         logger.info(">>> STARTING DISCOVERY PHASE (2 Mins) <<<")
         
         new_threats = []
         
         async with database.AsyncSessionLocal() as db:
             try:
-                # Run Discovery and capture newly created crises
                 new_threats = await run_discovery_phase(db)
                 
                 # --- NOTIFICATION LOGIC ---
                 if new_threats:
-                    # Filter for High Severity threats (e.g. 75+)
                     high_sev_crises = [c for c in new_threats if c.severity >= 75]
                     
                     if high_sev_crises:
                         if is_first_run:
-                            # STARTUP: Send ONE summary notification
                             high_sev_crises.sort(key=lambda x: x.severity, reverse=True)
                             top_picks = high_sev_crises[:3]
                             names = ", ".join([c.name for c in top_picks])
                             
                             msg = f"⚠ SYSTEM ONLINE: Initial Scan Complete. Detected {len(high_sev_crises)} Active Threats. Top Priority: {names}."
                             await crud.create_notification(db, content=msg, type="CATASTROPHIC_ALERT")
-                            logger.info(f"[Notifications] Sent Startup Summary: {msg}")
-                        
                         else:
-                            # CONTINUOUS: Send individual alerts for new items
                             for c in high_sev_crises:
                                 msg = f"🚨 NEW THREAT DETECTED: {c.name} (Severity: {c.severity}) detected in {c.location}."
                                 await crud.create_notification(db, content=msg, type="CATASTROPHIC_ALERT", crisis_id=c.id)
-                                logger.info(f"[Notifications] Sent Individual Alert for {c.name}")
 
             except Exception as e: 
                 logger.error(f"Discovery Error: {e}")
-                print(f"❌ Discovery Error: {e}")
         
-        # Disable startup flag after first pass
         is_first_run = False
         
         elapsed = time.time() - cycle_start
         if elapsed < DISCOVERY_WINDOW:
-            logger.info(f"[Supervisor] Waiting {DISCOVERY_WINDOW - elapsed:.0f}s for discovery window to close...")
             await asyncio.sleep(DISCOVERY_WINDOW - elapsed)
 
         # 2. AGENTIC SELECTION
@@ -435,5 +466,4 @@ async def start_monitoring():
              await crud.delete_old_crises(db) 
 
         logger.info("[Cycle] Resetting...")
-        print("🔄 [Cycle] Resetting...")
         await asyncio.sleep(5)
