@@ -3,7 +3,8 @@
 Sentinel AI is a real-time autonomous threat-intelligence engine designed to detect and neutralize lethal misinformation. Built on a Gemini 2.5 agentic pipeline (LangGraph), it ingests live data, cross-references claims with trusted sources, and produces high-confidence, fully traceable verdicts.  
 Its **Live War Room Dashboard** replaces passive reporting with active, real-time crisis defense.
 
---- **Demo Link** :
+---
+## **Demo Link** : https://bit.ly/4ouA91r
 
 ## **✨ Core Innovations & Features**
 
