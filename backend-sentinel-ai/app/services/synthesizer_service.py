@@ -5,19 +5,17 @@ from uuid import UUID
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-import google.generativeai as genai
+# [UPDATED] Only import types, not the main genai library
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 from app.core.config import settings
 from app.db import crud
+# [NEW] Import the rotation manager
+from app.core.gemini_client import gemini_client
 
 logger = logging.getLogger(__name__)
 
-# Configure Gemini
-try:
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-except Exception as e:
-    logger.error(f"Failed to configure Gemini API: {e}")
+# [REMOVED] genai.configure() is handled by the manager now.
 
 # --- Prompts ---
 
@@ -151,9 +149,10 @@ async def synthesize_evidence(
     )
 
     try:
-        model = genai.GenerativeModel(settings.GEMINI_SYNTHESIS_MODEL)
-        response = await model.generate_content_async(
-            prompt,
+        # [UPDATED] Use gemini_client for rotation
+        response = await gemini_client.generate_content_async(
+            model_name=settings.GEMINI_SYNTHESIS_MODEL,
+            prompt=prompt,
             generation_config={"response_mime_type": "application/json", "temperature": 0.1},
             safety_settings={
                 HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_ONLY_HIGH,
@@ -248,9 +247,10 @@ async def synthesize_crisis_conclusion(db: AsyncSession, crisis_id: UUID):
         )
 
         # 4. Call LLM
-        model = genai.GenerativeModel(settings.GEMINI_SYNTHESIS_MODEL)
-        response = await model.generate_content_async(
-            prompt,
+        # [UPDATED] Use gemini_client for rotation
+        response = await gemini_client.generate_content_async(
+            model_name=settings.GEMINI_SYNTHESIS_MODEL,
+            prompt=prompt,
             generation_config={"response_mime_type": "application/json", "temperature": 0.2}
         )
         

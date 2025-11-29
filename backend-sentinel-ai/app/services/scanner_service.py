@@ -7,7 +7,6 @@ import warnings
 from datetime import datetime, timezone
 from typing import List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
-import google.generativeai as genai
 from duckduckgo_search import DDGS 
 
 from app.core.config import settings
@@ -17,6 +16,8 @@ from app.services import verification_orchestrator
 from app.services import rss_service
 from app.services import synthesizer_service 
 from app.schemas.schemas import VerificationStatus
+# [NEW] Import the rotation manager
+from app.core.gemini_client import gemini_client
 
 # Suppress annoying "package renamed" warnings from DDGS
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="duckduckgo_search")
@@ -34,10 +35,7 @@ DISCOVERY_WINDOW = 2 * 60
 MAX_CONCURRENT_SCANS = 5 
 HIGH_RISK_SCAN_INTERVAL = 120 
 
-try:
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-except Exception as e:
-    logger.error(f"Failed to configure Gemini: {e}")
+# [REMOVED] genai.configure() is handled by the manager now.
 
 
 # --- UTILS: Robust Search Wrapper ---
@@ -158,8 +156,12 @@ async def analyze_and_assess_threats(db: AsyncSession, articles: List[Dict]):
     """
 
     try:
-        model = genai.GenerativeModel(settings.GEMINI_EXTRACTION_MODEL)
-        response = await model.generate_content_async(prompt)
+        # [UPDATED] Use gemini_client for rotation
+        response = await gemini_client.generate_content_async(
+            model_name=settings.GEMINI_EXTRACTION_MODEL,
+            prompt=prompt
+        )
+        
         if not response.text: return []
 
         raw_text = response.text.strip().replace("```json", "").replace("```", "")
@@ -253,8 +255,11 @@ async def perform_agentic_selection(db: AsyncSession):
     """
     
     try:
-        model = genai.GenerativeModel(settings.GEMINI_EXTRACTION_MODEL)
-        response = await model.generate_content_async(prompt)
+        # [UPDATED] Use gemini_client for rotation
+        response = await gemini_client.generate_content_async(
+            model_name=settings.GEMINI_EXTRACTION_MODEL,
+            prompt=prompt
+        )
         clean_json = response.text.strip().replace("```json", "").replace("```", "")
         selection = json.loads(clean_json)
         

@@ -3,18 +3,17 @@ import logging
 import re
 from typing import List, Dict, Any
 from datetime import datetime, timezone
-import google.generativeai as genai
+# [UPDATED] We only import types now, not the main library for configuration
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 from app.core.config import settings
+# [NEW] Import the rotation manager
+from app.core.gemini_client import gemini_client
 
 logger = logging.getLogger(__name__)
 
-# Configure Gemini
-try:
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-except Exception as e:
-    logger.error(f"Failed to configure Gemini API: {e}")
+# [REMOVED] The global genai.configure() block is no longer needed here.
+# The GeminiRotationManager handles this internally.
 
 # --- Cognitive Architecture: Rumor Extraction Prompt ---
 # [UPDATED] Tuned for "Rumor Decomposition" - Separating Signal from Noise
@@ -51,7 +50,7 @@ def _clean_json_text(raw_text: str) -> str:
 
 async def extract_claims(article_text: str) -> List[Dict[str, str]]:
     """
-    Uses Gemini 2.5 Flash to parse unstructured user/news text into structured Rumor/Location pairs.
+    Uses Gemini 2.5 Flash via the Rotation Manager to parse unstructured text.
     Returns: [{'text': '...', 'location': '...'}]
     """
     # Basic validation
@@ -61,12 +60,13 @@ async def extract_claims(article_text: str) -> List[Dict[str, str]]:
     logger.info(f"Extracting structured intelligence from: '{article_text[:30]}...'")
     
     try:
-        model = genai.GenerativeModel(settings.GEMINI_EXTRACTION_MODEL)
+        # [UPDATED] Replaced direct model instantiation with client call
         safe_text = article_text[:30000] # Truncate to safe limit
         current_date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-        response = await model.generate_content_async(
-            EXTRACTION_PROMPT.format(
+        response = await gemini_client.generate_content_async(
+            model_name=settings.GEMINI_EXTRACTION_MODEL,
+            prompt=EXTRACTION_PROMPT.format(
                 article_text=safe_text,
                 current_date=current_date_str
             ),

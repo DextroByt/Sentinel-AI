@@ -24,10 +24,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
     # --- External API Keys (Reference §2.4) ---
-    # These secrets are injected via environment variables (.env) for security.
-    GEMINI_API_KEY: str
-    
-    # NOTE: NewsAPI and NewsDataAPI keys have been removed in favor of free RSS/DDGS services.
+    # [UPDATED] Supports a single key OR a comma-separated list for rotation logic.
+    # Example in .env: GEMINI_API_KEYS="key1,key2,key3"
+    GEMINI_API_KEYS: str
 
     # --- AI Model Configuration (Reference §2.4) ---
     # "Gemini 2.5 Flash" is selected for its high efficiency and large context window,

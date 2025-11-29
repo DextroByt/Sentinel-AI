@@ -6,9 +6,11 @@ from typing import List, TypedDict, Optional, Any
 from uuid import UUID
 from langgraph.graph import StateGraph, END, START
 from sqlalchemy.ext.asyncio import AsyncSession
-import google.generativeai as genai
 
 from app.core.config import settings
+# [NEW] Import the rotation manager
+from app.core.gemini_client import gemini_client
+
 # Import Agents
 from app.agents import official_checker_agent, media_cross_referencer, debunker_agent
 from app.services import synthesizer_service
@@ -19,11 +21,7 @@ logger = logging.getLogger(__name__)
 # --- Configuration ---
 MAX_RETRIES = 1 # How many times to self-correct before giving up (Prevents infinite loops)
 
-# Configure Gemini for "Self-Reasoning"
-try:
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-except Exception as e:
-    logger.error(f"Failed to configure Gemini API: {e}")
+# [REMOVED] genai.configure() is handled by the manager now.
 
 class VerificationState(TypedDict):
     """
@@ -142,12 +140,17 @@ async def node_query_refiner(state: VerificationState):
     logger.info(f"[Orchestrator] 🧠 Self-Correcting: Refining search query for '{state['claim_text']}'")
     
     try:
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        # [UPDATED] Use gemini_client for rotation
         prompt = QUERY_REFINEMENT_PROMPT.format(
             claim=state["claim_text"], 
             location=state.get("location", "Unknown")
         )
-        response = await model.generate_content_async(prompt)
+        
+        response = await gemini_client.generate_content_async(
+            model_name="gemini-2.5-flash", # Or settings.GEMINI_EXTRACTION_MODEL
+            prompt=prompt
+        )
+        
         new_query = response.text.strip().replace('"', '')
         
         logger.info(f"[Orchestrator] 🔄 New Query Strategy: '{new_query}'")
