@@ -4,48 +4,65 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sentinel AI - Truth in the Noise</title>
+    
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
+    <link rel="manifest" href="assets/site.webmanifest">
+    <link rel="shortcut icon" href="assets/favicon.ico">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
+    <style>
+        /* Micro-animations for the new Report Section */
+        @keyframes scan-down {
+            0% { top: 0%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+        .animate-scan-down {
+            animation: scan-down 3s linear infinite;
+        }
+        .bg-grid-pattern {
+            background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
 </head>
-<body class="antialiased min-h-screen flex flex-col selection:bg-blue-500/30 selection:text-blue-200">
+<body class="antialiased min-h-screen flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
 
     <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
-        <div class="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-blue-600/10 rounded-full blur-[120px] opacity-40 animate-pulse"></div>
-        <div class="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-purple-600/10 rounded-full blur-[120px] opacity-30"></div>
+        <div class="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-blue-900/10 rounded-full blur-[150px] opacity-30 animate-pulse"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-cyan-900/10 rounded-full blur-[150px] opacity-30"></div>
     </div>
 
     <header class="sticky top-0 z-50 glass border-t-0 border-x-0 transition-all duration-300">
         <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
             <a href="#" class="flex items-center gap-3 group">
-                <div class="relative flex h-3 w-3">
-                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                  <span class="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                <div class="relative flex h-8 w-8">
+                  <img src="assets/android-chrome-192x192.png" alt="Sentinel AI Logo" class="w-full h-full object-contain drop-shadow-[0_0_8px_rgba(6,182,212,0.5)] group-hover:drop-shadow-[0_0_12px_rgba(6,182,212,0.8)] transition-all duration-300">
                 </div>
-                <span class="font-mono text-lg font-bold tracking-[0.15em] text-white group-hover:text-blue-400 transition-colors">
-                    SENTINEL<span class="text-blue-500">.AI</span>
+                
+                <span class="font-mono text-sm font-bold tracking-[0.2em] text-white group-hover:text-cyan-400 transition-colors">
+                    SENTINEL<span class="text-cyan-500">.AI</span>
                 </span>
             </a>
 
             <nav class="hidden md:flex items-center gap-8">
                 <a href="#dashboard" class="nav-link text-white">Live Ops</a>
-                <a href="#features" class="nav-link">System Architecture</a>
-                <a href="#report" class="nav-link">Submit Intel</a>
+                <a href="#architecture" class="nav-link">Agent Pipeline</a>
+                <a href="#report" class="nav-link">Verify Rumor</a>
             </nav>
 
             <div class="flex items-center gap-4">
-                <button id="btn-toggle-notifs" class="group flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 hover:border-blue-500/30 hover:bg-blue-500/10 transition cursor-pointer backdrop-blur-sm">
-                    <div id="icon-container" class="text-gray-400 group-hover:text-blue-400 transition">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                    </div>
-                    <span id="lbl-notifs" class="text-[10px] font-mono uppercase tracking-widest text-gray-400 group-hover:text-white">Alerts Off</span>
-                </button>
-                
-                <div class="hidden sm:flex items-center gap-2 bg-green-900/20 px-3 py-1.5 rounded-full border border-green-500/20">
+                <div class="hidden sm:flex items-center gap-2 bg-green-900/10 px-3 py-1.5 rounded border border-green-500/20">
                     <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_#22c55e]"></span>
-                    <span class="text-[10px] text-green-400 font-mono uppercase tracking-widest">Uplink Active</span>
+                    <span class="text-[9px] text-green-400 font-mono uppercase tracking-widest">System Online</span>
                 </div>
             </div>
         </div>
@@ -53,131 +70,197 @@
 
     <main class="flex-grow">
         
-        <section class="relative w-full max-w-7xl mx-auto px-4 pt-24 pb-20 text-center flex flex-col items-center animate-in">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-mono uppercase tracking-widest mb-6">
-                <span>◆</span> Autonomous Verification Protocol
-            </div>
+        <section class="relative w-full max-w-7xl mx-auto px-4 pt-28 pb-20 text-center flex flex-col items-center animate-in">
             
-            <h1 class="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter text-white mb-8 leading-[0.9]">
+            <h1 class="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight text-white mb-8 leading-[0.9]">
                 Clarity in <br />
-                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-blue-400 animate-gradient-x">Crisis</span>.
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600">Crisis Data</span>.
             </h1>
             
-            <p class="max-w-2xl text-lg text-gray-400 leading-relaxed font-light mb-10">
+            <p class="max-w-xl text-sm text-gray-500 leading-relaxed font-mono mb-12">
                 Sentinel AI deploys autonomous agents to combat lethal misinformation in real-time. 
-                We verify the noise so you can trust the signal.
             </p>
 
             <div class="flex gap-4">
-                <a href="#dashboard" class="px-8 py-3 bg-white text-black rounded-lg font-bold text-sm hover:bg-gray-200 transition shadow-[0_0_20px_rgba(255,255,255,0.3)]">
+                <a href="#dashboard" class="px-8 py-3 bg-white text-black rounded font-bold text-xs uppercase tracking-widest hover:bg-gray-200 transition">
                     View Live Feed
                 </a>
-                <a href="#report" class="px-8 py-3 glass text-white rounded-lg font-bold text-sm hover:bg-white/10 transition">
-                    Verify a Rumor
+                <a href="#report" class="px-8 py-3 bg-white/5 text-white border border-white/10 rounded font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition">
+                    Verify Rumor
                 </a>
             </div>
         </section>
 
-        <section id="features" class="w-full max-w-7xl mx-auto px-4 py-12 animate-in delay-100">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="glass-panel p-8 rounded-2xl group">
-                    <div class="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                        <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
-                    </div>
-                    <h3 class="text-xl font-bold text-white mb-2">Multi-Vector Analysis</h3>
-                    <p class="text-sm text-gray-400 leading-relaxed">
-                        We don't just check one source. Our agents cross-reference Gov portals, Mainstream Media, and Fact-Check databases simultaneously.
-                    </p>
-                </div>
-
-                <div class="glass-panel p-8 rounded-2xl group">
-                    <div class="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                        <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    </div>
-                    <h3 class="text-xl font-bold text-white mb-2">Real-Time Verdicts</h3>
-                    <p class="text-sm text-gray-400 leading-relaxed">
-                        Stop spreading lies before they go viral. Sentinel delivers "Verified", "Debunked", or "Unconfirmed" statuses in seconds.
-                    </p>
-                </div>
-
-                <div class="glass-panel p-8 rounded-2xl group">
-                    <div class="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                        <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    </div>
-                    <h3 class="text-xl font-bold text-white mb-2">Global Surveillance</h3>
-                    <p class="text-sm text-gray-400 leading-relaxed">
-                        Autonomous scanners monitor RSS feeds and social signals 24/7 to detect emerging threats without human intervention.
-                    </p>
-                </div>
-            </div>
-        </section>
-
-        <section class="w-full max-w-7xl mx-auto px-4 py-16 animate-in delay-200">
-            <div class="text-center mb-12">
-                <h2 class="text-sm font-mono text-blue-400 uppercase tracking-widest mb-2">Under the Hood</h2>
-                <h3 class="text-2xl font-bold text-white">The Agentic Workflow</h3>
+        <section id="architecture" class="w-full max-w-7xl mx-auto px-4 py-16 animate-in delay-200 scroll-mt-24">
+            <div class="text-center mb-8">
+                <h2 class="text-[10px] font-mono text-cyan-500 uppercase tracking-[0.3em] mb-2">Internal Logic</h2>
+                <h3 class="text-2xl font-bold text-white">The Neural Pipeline</h3>
             </div>
 
-            <div class="flow-container">
-                <div class="flow-node">
-                    <span class="flow-node-icon">📡</span>
-                    <h3 class="text-sm font-bold text-white mb-1">Signal Intake</h3>
-                    <p class="text-[10px] text-gray-500 uppercase tracking-wider">RSS & User Reports</p>
-                </div>
+            <div class="arch-wrapper">
                 
-                <div class="flow-line"></div>
-
-                <div class="flow-node border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.15)]">
-                    <span class="flow-node-icon">🧠</span>
-                    <h3 class="text-sm font-bold text-white mb-1">Orchestrator</h3>
-                    <p class="text-[10px] text-blue-400 uppercase tracking-wider">Strategy Agent</p>
-                </div>
-
-                <div class="flow-line"></div>
-
-                <div class="flex flex-col gap-4">
-                    <div class="flow-node py-3 w-40 !border-green-500/30">
-                        <span class="text-xs font-bold text-gray-300">🏛️ Official</span>
-                    </div>
-                    <div class="flow-node py-3 w-40 !border-purple-500/30">
-                        <span class="text-xs font-bold text-gray-300">📰 Media</span>
-                    </div>
-                    <div class="flow-node py-3 w-40 !border-yellow-500/30">
-                        <span class="text-xs font-bold text-gray-300">🔍 Fact-Check</span>
+                <div class="arch-row">
+                    <div class="holo-card">
+                        <div class="holo-inner">
+                            <div class="holo-front">
+                                <svg class="holo-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z"></path></svg>
+                                <div class="holo-title">Signal Intake</div>
+                                <div class="holo-sub">Raw Data Stream</div>
+                            </div>
+                            <div class="holo-back">
+                                <div class="data-grid">
+                                    <div class="data-row"><span class="data-label">PROTOCOL</span><span class="data-val">LISTEN</span></div>
+                                    <div class="data-row"><span class="data-label">SOURCE</span><span class="data-val">RSS/API</span></div>
+                                </div>
+                                <p class="data-desc">Aggregates signals from RSS feeds & User Reports. Filters noise via RegEx.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="flow-line"></div>
-
-                <div class="flow-node border-white/30 bg-white/5">
-                    <span class="flow-node-icon">🛡️</span>
-                    <h3 class="text-sm font-bold text-white mb-1">Verdict</h3>
-                    <p class="text-[10px] text-gray-400 uppercase tracking-wider">Verified / Debunked</p>
+                <div class="pipe-container">
+                    <svg class="pipe-svg" viewBox="0 0 100 60" preserveAspectRatio="none">
+                        <line class="pipe-path" x1="50" y1="0" x2="50" y2="60" />
+                        <line class="pipe-flow" x1="50" y1="0" x2="50" y2="60" />
+                    </svg>
                 </div>
+
+                <div class="arch-row">
+                    <div class="holo-card">
+                        <div class="holo-inner">
+                            <div class="holo-front">
+                                <svg class="holo-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
+                                <div class="holo-title">Orchestrator</div>
+                                <div class="holo-sub">Strategy Core</div>
+                            </div>
+                            <div class="holo-back">
+                                <div class="data-grid">
+                                    <div class="data-row"><span class="data-label">AGENT</span><span class="data-val">LANGGRAPH</span></div>
+                                </div>
+                                <p class="data-desc">Determines verification strategy. Routes tasks to specialized agents.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pipe-container pipe-split">
+                    <svg class="pipe-svg" viewBox="0 0 600 80" preserveAspectRatio="none">
+                        <path class="pipe-path" d="M300,0 V20 H100 V80" />
+                        <path class="pipe-flow" d="M300,0 V20 H100 V80" />
+                        <path class="pipe-path" d="M300,0 V80" />
+                        <path class="pipe-flow" d="M300,0 V80" />
+                        <path class="pipe-path" d="M300,0 V20 H500 V80" />
+                        <path class="pipe-flow" d="M300,0 V20 H500 V80" />
+                    </svg>
+                </div>
+
+                <div class="arch-row">
+                    <div class="holo-card">
+                        <div class="holo-inner">
+                            <div class="holo-front">
+                                <svg class="holo-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                <div class="holo-title">Official</div>
+                                <div class="holo-sub">Gov Portals</div>
+                            </div>
+                            <div class="holo-back">
+                                <div class="data-grid"><div class="data-row"><span class="data-label">TARGET</span><span class="data-val">GOV.IN</span></div></div>
+                                <p class="data-desc">Scrapes official portals (Police, NDMA) for direct confirmations.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="holo-card agent-media">
+                        <div class="holo-inner">
+                            <div class="holo-front">
+                                <svg class="holo-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path></svg>
+                                <div class="holo-title">Media</div>
+                                <div class="holo-sub">News Cross-Ref</div>
+                            </div>
+                            <div class="holo-back">
+                                <div class="data-grid"><div class="data-row"><span class="data-label">TARGET</span><span class="data-val">REUTERS/ANI</span></div></div>
+                                <p class="data-desc">Triangulates events via Tier-1 media outlets.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="holo-card agent-fact">
+                        <div class="holo-inner">
+                            <div class="holo-front">
+                                <svg class="holo-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                <div class="holo-title">Debunker</div>
+                                <div class="holo-sub">Hoax DB</div>
+                            </div>
+                            <div class="holo-back">
+                                <div class="data-grid"><div class="data-row"><span class="data-label">TARGET</span><span class="data-val">ALTNEWS</span></div></div>
+                                <p class="data-desc">Checks Fact-Check databases for recycled videos/hoaxes.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pipe-container pipe-merge">
+                    <svg class="pipe-svg" viewBox="0 0 600 80" preserveAspectRatio="none">
+                        <path class="pipe-path" d="M100,0 V60 H300 V80" />
+                        <path class="pipe-flow" d="M100,0 V60 H300 V80" />
+                        <path class="pipe-path" d="M300,0 V80" />
+                        <path class="pipe-flow" d="M300,0 V80" />
+                        <path class="pipe-path" d="M500,0 V60 H300 V80" />
+                        <path class="pipe-flow" d="M500,0 V60 H300 V80" />
+                    </svg>
+                </div>
+
+                <div class="arch-row">
+                    <div class="holo-card">
+                        <div class="holo-inner">
+                            <div class="holo-front">
+                                <svg class="holo-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                <div class="holo-title">Synthesizer</div>
+                                <div class="holo-sub">Data Fusion</div>
+                            </div>
+                            <div class="holo-back">
+                                <div class="data-grid"><div class="data-row"><span class="data-label">MODEL</span><span class="data-val">GEMINI 2.5</span></div></div>
+                                <p class="data-desc">Aggregates evidence. Weighs conflicting reports.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pipe-container">
+                    <svg class="pipe-svg" viewBox="0 0 100 60" preserveAspectRatio="none">
+                        <line class="pipe-path" x1="50" y1="0" x2="50" y2="60" />
+                        <line class="pipe-flow" x1="50" y1="0" x2="50" y2="60" />
+                    </svg>
+                </div>
+
+                <div class="arch-row">
+                    <div class="holo-card">
+                        <div class="holo-inner">
+                            <div class="holo-front" style="border-color: rgba(6, 182, 212, 0.4);">
+                                <svg class="holo-icon" style="color: #06b6d4;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                <div class="holo-title" style="color: #06b6d4;">Trust Engine</div>
+                                <div class="holo-sub">Confidence Score</div>
+                            </div>
+                            <div class="holo-back">
+                                <div class="data-grid"><div class="data-row"><span class="data-label">OUTPUT</span><span class="data-val">JSON</span></div></div>
+                                <p class="data-desc">Calculates 0-100 Confidence Score & Reasoning Trace.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </section>
 
-        <section id="dashboard" class="w-full max-w-7xl mx-auto px-4 py-12 animate-in delay-300">
-            
+        <section id="dashboard" class="w-full max-w-7xl mx-auto px-4 py-12 animate-in delay-300 scroll-mt-24">
             <div class="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-white/10 pb-6 gap-4">
                 <div>
                     <h2 class="text-3xl font-bold text-white mb-2">Active Threats</h2>
                     <p class="text-sm text-gray-400 font-mono">Live feed of high-priority misinformation and crises.</p>
                 </div>
-
                 <div class="bg-white/5 p-1 rounded-lg border border-white/10 backdrop-blur-md flex">
-                    <button class="region-btn active px-5 py-2 rounded-md text-[10px] font-bold font-mono uppercase tracking-widest text-black bg-white shadow-lg" data-filter="ALL">
-                        ALL
-                    </button>
-                    <button class="region-btn px-5 py-2 rounded-md text-[10px] font-bold font-mono uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/10 transition-all" data-filter="INDIA">
-                        🇮🇳 India
-                    </button>
-                    <button class="region-btn px-5 py-2 rounded-md text-[10px] font-bold font-mono uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/10 transition-all" data-filter="GLOBAL">
-                        🌍 Global
-                    </button>
+                    <button class="region-btn active px-5 py-2 rounded-md text-[10px] font-bold font-mono uppercase tracking-widest text-black bg-white shadow-lg" data-filter="ALL">ALL</button>
+                    <button class="region-btn px-5 py-2 rounded-md text-[10px] font-bold font-mono uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/10 transition-all" data-filter="INDIA">🇮🇳 India</button>
+                    <button class="region-btn px-5 py-2 rounded-md text-[10px] font-bold font-mono uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/10 transition-all" data-filter="GLOBAL">🌍 Global</button>
                 </div>
             </div>
-
             <div id="crisis-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div class="col-span-full flex flex-col items-center justify-center py-32 glass rounded-2xl border border-white/5">
                     <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500 mb-4"></div>
@@ -186,66 +269,98 @@
             </div>
         </section>
 
-        <section id="report" class="w-full max-w-4xl mx-auto px-4 py-24 animate-in delay-300">
-            <div class="scifi-outer rounded-2xl overflow-hidden">
-                <div class="scifi-dot"></div>
-                <div class="scifi-card">
-                    <div class="scifi-ray"></div>
-                    <div class="scifi-line scifi-topl"></div>
-                    <div class="scifi-line scifi-leftl"></div>
-                    <div class="scifi-line scifi-bottoml"></div>
-                    <div class="scifi-line scifi-rightl"></div>
-
+        <section id="report" class="w-full max-w-4xl mx-auto px-4 py-24 animate-in delay-300 scroll-mt-24">
+            <div class="scifi-outer rounded-2xl overflow-hidden relative group/panel">
+                <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noise%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noise)%22 opacity=%220.5%22/%3E%3C/svg%3E');"></div>
+                
+                <div class="scifi-card bg-black/80 backdrop-blur-xl relative z-10">
                     <div class="scifi-content p-8 md:p-12">
-                        <div class="flex items-center gap-4 mb-8">
-                            <div class="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
-                                <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        
+                        <div class="flex flex-col md:flex-row items-start md:items-center gap-6 mb-10 border-b border-white/5 pb-8">
+                            <div class="relative">
+                                <div class="absolute -inset-2 bg-blue-500/20 rounded-full blur-lg animate-pulse"></div>
+                                <div class="p-4 bg-black border border-blue-500/50 rounded-2xl relative shadow-lg">
+                                    <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                </div>
                             </div>
                             <div>
-                                <h2 class="text-2xl font-bold text-white tracking-tight">Report Suspicious Intel</h2>
-                                <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Verify WhatsApp forwards & Social Media Rumors</p>
+                                <h2 class="text-3xl font-bold text-white tracking-tight mb-2">Verify Intel</h2>
+                                <p class="text-xs font-mono text-blue-400/80 uppercase tracking-widest flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-blue-500 rounded-full animate-ping"></span>
+                                    Awaiting Input Sequence
+                                </p>
                             </div>
                         </div>
                         
-                        <form id="adhoc-analysis-form" class="space-y-8">
+                        <form id="adhoc-analysis-form" class="space-y-8 relative">
                             <div class="relative group">
-                                <div class="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl opacity-20 group-hover:opacity-50 transition duration-500 blur"></div>
-                                <div class="relative">
-                                    <input type="text" id="adhoc-input" placeholder="Paste the claim here (e.g. 'Bridge collapse in Mumbai video...')" 
-                                        class="w-full bg-[#0a0a0a] border border-white/10 rounded-xl px-6 py-5 text-white placeholder-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition outline-none shadow-xl font-mono text-sm">
-                                    <div class="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] text-gray-600 font-mono uppercase tracking-widest border border-white/5 px-2 py-1 rounded">
-                                        Agent Ready
+                                <div class="absolute -inset-0.5 bg-gradient-to-r from-blue-600 via-cyan-500 to-purple-600 rounded-xl opacity-30 group-hover:opacity-70 transition duration-500 blur-sm"></div>
+                                
+                                <div class="relative bg-black rounded-xl p-1">
+                                    <div class="relative overflow-hidden rounded-lg bg-grid-pattern">
+                                        <textarea id="adhoc-input" rows="3" placeholder="Paste suspicious text or claim here..." 
+                                            class="w-full bg-transparent border-0 text-white placeholder-gray-600 focus:ring-0 text-sm font-mono leading-relaxed p-6 resize-none focus:bg-white/5 transition-colors"></textarea>
+                                        
+                                        <div class="absolute top-0 left-0 w-4 h-4 border-l-2 border-t-2 border-blue-500/50 pointer-events-none"></div>
+                                        <div class="absolute bottom-0 right-0 w-4 h-4 border-r-2 border-b-2 border-blue-500/50 pointer-events-none"></div>
                                     </div>
+                                </div>
+                                
+                                <div class="absolute right-4 bottom-4 flex items-center gap-2 pointer-events-none">
+                                    <span class="text-[10px] font-mono text-gray-500 uppercase tracking-wider">Ready</span>
+                                    <div class="w-1.5 h-1.5 bg-green-500 rounded-full shadow-[0_0_5px_#22c55e]"></div>
                                 </div>
                             </div>
 
-                            <div class="flex justify-between items-center">
-                                <span id="form-status" class="text-xs font-mono transition-opacity opacity-0 text-blue-400 animate-pulse">Initializing Protocol...</span>
-                                <button type="submit" id="submit-btn" class="group relative overflow-hidden bg-white text-black font-bold py-3 px-8 rounded-lg text-xs uppercase tracking-widest transition-all hover:scale-105 hover:shadow-[0_0_20px_rgba(255,255,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <span class="relative z-10 flex items-center gap-2">
-                                        Initialize Scan
-                                        <svg class="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                            <div class="flex flex-col sm:flex-row justify-between items-center gap-6">
+                                <div class="flex items-center gap-3">
+                                    <span id="form-status" class="text-xs font-mono text-gray-500 uppercase tracking-wider transition-all">System Standby</span>
+                                </div>
+
+                                <button type="submit" id="submit-btn" class="group relative px-8 py-4 bg-white/5 hover:bg-blue-600/20 border border-white/10 hover:border-blue-500/50 rounded-lg overflow-hidden transition-all duration-300">
+                                    <div class="absolute inset-0 w-0 bg-blue-600/20 transition-all duration-[250ms] ease-out group-hover:w-full"></div>
+                                    <span class="relative flex items-center gap-3 text-xs font-bold text-white uppercase tracking-[0.2em] group-hover:text-blue-200">
+                                        Initiate Scan
+                                        <svg class="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                                     </span>
                                 </button>
                             </div>
                         </form>
 
-                        <div id="adhoc-result-container" class="hidden mt-12 border-t border-white/10 pt-8 animate-fade-in">
-                            <div class="glass p-6 rounded-xl border border-white/10 bg-white/5">
-                                <div class="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h3 class="text-xs font-bold font-mono uppercase text-gray-500 mb-1 tracking-widest">Verdict</h3>
-                                        <span id="adhoc-badge" class="px-3 py-1 rounded-md text-[10px] font-bold font-mono uppercase border">PROCESSING</span>
+                        <div id="adhoc-result-container" class="hidden mt-12 animate-in">
+                            <div class="relative rounded-xl overflow-hidden border border-white/10 bg-black/40 backdrop-blur-md">
+                                <div class="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/5">
+                                    <div class="flex items-center gap-2">
+                                        <div class="flex gap-1.5">
+                                            <div class="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50"></div>
+                                            <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/20 border border-yellow-500/50"></div>
+                                            <div class="w-2.5 h-2.5 rounded-full bg-green-500/20 border border-green-500/50"></div>
+                                        </div>
+                                        <span class="text-[10px] font-mono text-gray-500 ml-2">VERITAS_TERMINAL_V1</span>
                                     </div>
-                                </div>
-                                
-                                <div id="adhoc-verdict-text" class="text-gray-300 text-sm leading-relaxed font-light mb-6">
-                                    Agents are currently traversing official channels...
+                                    <span id="adhoc-badge" class="text-[9px] font-bold font-mono px-2 py-0.5 rounded text-blue-400 bg-blue-900/30 border border-blue-500/30">PROCESSING</span>
                                 </div>
 
-                                <div class="text-xs text-gray-500 border-t border-white/5 pt-4">
-                                    <strong class="font-mono text-[9px] uppercase tracking-wider block mb-2 text-gray-600">Primary Sources:</strong>
-                                    <ul id="adhoc-sources-list" class="space-y-2 font-mono"></ul>
+                                <div class="p-6 relative">
+                                    <div class="absolute top-0 left-0 w-full h-1 bg-blue-500/10 shadow-[0_0_15px_#3b82f6] animate-scan-down pointer-events-none"></div>
+                                    
+                                    <div class="mb-6">
+                                        <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Verdict Synthesis</h3>
+                                        <p id="adhoc-verdict-text" class="text-sm text-gray-300 font-mono leading-relaxed">
+                                            > Initializing agents...<br>
+                                            > Connection established.<br>
+                                            > Analyzing semantic patterns...
+                                        </p>
+                                    </div>
+
+                                    <div class="border-t border-white/5 pt-4">
+                                        <h4 class="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                                            Evidence Stream
+                                        </h4>
+                                        <ul id="adhoc-sources-list" class="space-y-2 font-mono text-xs text-blue-400/80">
+                                            </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -311,7 +426,7 @@
             }
         }
 
-        btn.addEventListener('click', async () => {
+        btn?.addEventListener('click', async () => {
             if (Notification.permission !== "granted") {
                 await requestNotificationPermission();
             } else {
@@ -321,7 +436,10 @@
             updateNotificationUI();
         });
 
-        updateNotificationUI();
+        // Ensure elements exist before running UI update
+        if(btn && lbl && iconContainer) {
+            updateNotificationUI();
+        }
     </script>
 </body>
 </html>

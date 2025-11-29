@@ -103,24 +103,35 @@ async def node_debunker(state: VerificationState):
 async def node_assessor(state: VerificationState):
     """
     CRITICAL STEP: The Agent 'Reflects' on its findings.
-    If evidence is empty, it triggers a Retry with a better query.
+    
+    [UPDATED LOGIC]: 
+    1. Count Valid Evidence.
+    2. If Zero Evidence:
+       - If Retry < MAX, trigger 'NEEDS_REFINEMENT' (Agent tries again).
+       - If Retry >= MAX, trigger 'READY_TO_SYNTHESIZE' (Pass empty evidence to Brain for Absurdity Check).
     """
     off = state.get("official_evidence", [])
     med = state.get("media_evidence", [])
     deb = state.get("debunk_evidence", [])
     
-    # Filter out "No result" placeholders from agents
-    real_off = [x for x in off if "No " not in x[:10]]
-    real_med = [x for x in med if "No " not in x[:10]]
-    real_deb = [x for x in deb if "No " not in x[:10]]
+    # Robust Filter: Ensure we don't count "No results found" messages as evidence
+    real_hits = 0
+    for category in [off, med, deb]:
+        for item in category:
+            # Check length > 50 to filter out short "No data" strings, and check for negative keywords
+            if len(item) > 50 and "No " not in item[:20]:
+                real_hits += 1
     
-    total_hits = len(real_off) + len(real_med) + len(real_deb)
-    
-    logger.info(f"[Orchestrator] Assessment: Found {total_hits} pieces of evidence on Try #{state['retry_count']}")
+    logger.info(f"[Orchestrator] Assessment: Found {real_hits} valid pieces of evidence on Try #{state['retry_count']}")
 
-    if total_hits == 0 and state["retry_count"] < MAX_RETRIES:
-        # trigger refinement
-        return {"status": "NEEDS_REFINEMENT"}
+    if real_hits == 0:
+        if state["retry_count"] < MAX_RETRIES:
+            logger.info("[Orchestrator] Zero evidence found. Retrying with refined query...")
+            return {"status": "NEEDS_REFINEMENT"}
+        else:
+            logger.warning("[Orchestrator] Still zero evidence after retries. Passing to Synthesizer for Logical Deduction.")
+            # DO NOT FAIL HERE. Pass to Synthesizer so it can debunk based on "Absence of Evidence".
+            return {"status": "READY_TO_SYNTHESIZE"}
     
     return {"status": "READY_TO_SYNTHESIZE"}
 
@@ -168,7 +179,7 @@ async def node_synthesizer(state: VerificationState):
             location=state.get("location", "Unknown")
         )
         
-        # [NEW] Capture the score in the state for potential future logic
+        # Capture the score in the state for potential future logic
         return {
             "confidence_score": result.get("confidence_score", 0),
             "reasoning_trace": result.get("reasoning_trace", "Processed")
@@ -260,8 +271,8 @@ async def run_verification_pipeline(
         "official_evidence": [],
         "media_evidence": [],
         "debunk_evidence": [],
-        "confidence_score": 0, # [NEW]
-        "reasoning_trace": "", # [NEW]
+        "confidence_score": 0, 
+        "reasoning_trace": "", 
         "retry_count": 0,
         "status": "STARTING"
     }

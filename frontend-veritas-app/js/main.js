@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { getStatusClasses, showToast } from './utils.js';
+import { showToast } from './utils.js';
 
 // --- STATE ---
 let activeCrises = [];
@@ -32,14 +32,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     notificationInterval = setInterval(checkNotifications, 30000);
     
     setupRegionFilter();
+    setupScrollSpy();
 });
 
 // --- FUNCTIONS ---
 
+function setupScrollSpy() {
+    const navLinks = document.querySelectorAll('nav a');
+    const sections = document.querySelectorAll('section[id]');
+
+    const observerOptions = {
+        root: null,
+        rootMargin: '-50% 0px -50% 0px', 
+        threshold: 0
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                navLinks.forEach(link => {
+                    link.classList.remove('text-white', 'font-medium');
+                    link.classList.add('text-gray-400');
+                });
+                const activeLink = document.querySelector(`nav a[href="#${entry.target.id}"]`);
+                if (activeLink) {
+                    activeLink.classList.remove('text-gray-400');
+                    activeLink.classList.add('text-white', 'font-medium');
+                }
+            }
+        });
+    }, observerOptions);
+
+    sections.forEach(section => observer.observe(section));
+}
+
 function setupRegionFilter() {
     filterBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            // UI Update
             filterBtns.forEach(b => {
                 b.classList.remove('active', 'bg-white', 'text-black', 'shadow-lg');
                 b.classList.add('text-gray-400', 'hover:text-white', 'hover:bg-white/10');
@@ -47,7 +76,6 @@ function setupRegionFilter() {
             btn.classList.add('active', 'bg-white', 'text-black', 'shadow-lg');
             btn.classList.remove('text-gray-400', 'hover:text-white', 'hover:bg-white/10');
             
-            // Logic Update
             currentFilter = btn.getAttribute('data-filter');
             applyFilter();
         });
@@ -112,20 +140,18 @@ function renderDashboard() {
         
         const rawVerdict = crisis.verdict_status ? crisis.verdict_status.toUpperCase() : 'PENDING';
         
-        // --- INTELLIGENT STYLING ENGINE ---
-        // Determines the card's "personality" (Red/Purple/Blue) based on the threat type.
         let statusConfig = {
             word: 'ANALYZING',
-            styleClass: 'text-blue-400 border-blue-500/30 bg-blue-500/10',
-            severityClass: 'severity-low', // Default Blue Glow
-            dotColor: 'bg-blue-500'
+            styleClass: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
+            severityClass: 'severity-low', 
+            dotColor: 'bg-cyan-500'
         };
 
         if (rawVerdict.includes('MISINFORMATION') || rawVerdict.includes('HOAX')) {
             statusConfig = {
                 word: 'HOAX DETECTED',
                 styleClass: 'text-purple-300 border-purple-500/40 bg-purple-500/20 shadow-[0_0_15px_rgba(147,51,234,0.2)]',
-                severityClass: 'severity-hoax', // Purple Glow
+                severityClass: 'severity-hoax', 
                 dotColor: 'bg-purple-400'
             };
         } 
@@ -133,35 +159,29 @@ function renderDashboard() {
             statusConfig = {
                 word: 'REAL CRISIS',
                 styleClass: 'text-red-200 border-red-500/40 bg-red-500/20 shadow-[0_0_15px_rgba(220,38,38,0.2)] animate-pulse',
-                severityClass: 'severity-high', // Red Glow
+                severityClass: 'severity-high',
                 dotColor: 'bg-red-500'
             };
         }
         else if (rawVerdict.includes('CONFIRMED')) {
             statusConfig = {
                 word: 'VERIFIED EVENT',
-                styleClass: 'text-orange-300 border-orange-500/40 bg-orange-500/10',
+                styleClass: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10',
                 severityClass: 'severity-low',
-                dotColor: 'bg-orange-500'
+                dotColor: 'bg-emerald-500'
             };
         }
 
-        // Location Formatting
         const locationText = (crisis.location && crisis.location !== 'Unknown Location') ? crisis.location : 'Global Region';
-        
-        // Time Formatting
         const dateObj = new Date(crisis.created_at);
         const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-        // Tag Generation
         const tags = crisis.keywords.split(',').slice(0, 3).map(t => 
             `<span class="text-[9px] font-mono bg-white/5 px-2 py-1 rounded text-gray-400 border border-white/10 uppercase tracking-wider">${t.trim()}</span>`
         ).join('');
 
-        // Summary Logic: Prioritize the verdict summary, fallback to initial description
         const displayText = crisis.verdict_summary || crisis.description || 'Agents are currently aggregating data streams...';
 
-        // --- CARD HTML CONSTRUCTION ---
         card.className = `glass-panel p-6 rounded-2xl group cursor-pointer flex flex-col h-full relative overflow-hidden ${statusConfig.severityClass}`;
         
         card.innerHTML = `
@@ -199,7 +219,7 @@ function renderDashboard() {
     });
 }
 
-// --- AD HOC FORM LOGIC (Preserved & Optimized) ---
+// --- AD HOC FORM LOGIC ---
 if (adhocForm) {
     adhocForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -235,7 +255,6 @@ function pollAnalysis(analysisId) {
                 renderAdHocResult(data);
                 showFeedback('Mission Complete', 'success');
             } else {
-                // Dynamic status updates based on time
                 const msg = attempts < 3 ? "Scanning Social Vectors..." : (attempts < 6 ? "Cross-referencing Media..." : "Synthesizing Verdict...");
                 showFeedback(msg, 'info');
             }
@@ -255,27 +274,26 @@ function pollAnalysis(analysisId) {
 function renderAdHocResult(data) {
     resultContainer.classList.remove('hidden');
     
-    // Reset styling
-    badge.className = 'px-3 py-1 rounded-md text-[10px] font-bold font-mono uppercase border';
+    // [UPDATED] Terminal-Style Badge Reset
+    badge.className = 'text-[9px] font-bold font-mono px-2 py-0.5 rounded border uppercase';
     
     if (data.status === 'FAILED') {
-        badge.classList.add('bg-red-900/20', 'text-red-500', 'border-red-500/50');
+        badge.classList.add('bg-red-900/30', 'text-red-400', 'border-red-500/30');
         badge.innerText = 'SYSTEM FAILURE';
-        verdictText.innerText = "The verification pipeline encountered a critical error.";
+        verdictText.innerHTML = `<span class="text-red-400">ERROR:</span> The pipeline encountered a critical failure.`;
         return;
     }
 
-    // Verdict Styling
     const verdict = data.verdict_status || "UNCLEAR";
     
     if (verdict.includes('MISINFO') || verdict.includes('HOAX')) {
-        badge.classList.add('bg-purple-500/20', 'text-purple-300', 'border-purple-500/50', 'shadow-[0_0_10px_#9333ea]');
+        badge.classList.add('bg-purple-900/30', 'text-purple-300', 'border-purple-500/30', 'shadow-[0_0_10px_rgba(168,85,247,0.2)]');
         badge.innerText = '⚠️ HOAX CONFIRMED';
     } else if (verdict.includes('VERIFIED') || verdict.includes('REAL')) {
-        badge.classList.add('bg-green-500/20', 'text-green-400', 'border-green-500/50');
+        badge.classList.add('bg-green-900/30', 'text-green-400', 'border-green-500/30', 'shadow-[0_0_10px_rgba(74,222,128,0.2)]');
         badge.innerText = '✅ VERIFIED REAL';
     } else {
-        badge.classList.add('bg-yellow-500/10', 'text-yellow-400', 'border-yellow-500/50');
+        badge.classList.add('bg-blue-900/30', 'text-blue-400', 'border-blue-500/30');
         badge.innerText = '❓ UNCONFIRMED';
     }
     
@@ -285,15 +303,17 @@ function renderAdHocResult(data) {
     if (data.verdict_sources?.length) {
         data.verdict_sources.forEach(s => {
             const li = document.createElement('li');
-            li.className = "flex items-center gap-2";
+            li.className = "flex items-start gap-2 group/link";
             li.innerHTML = `
-                <svg class="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-                <a href="${s.url}" target="_blank" class="text-blue-400 hover:text-white transition underline decoration-blue-500/30 underline-offset-4">${s.title}</a>
+                <span class="text-blue-500 mt-0.5">›</span>
+                <a href="${s.url}" target="_blank" class="hover:text-white transition-colors underline decoration-blue-500/30 decoration-1 underline-offset-4 group-hover/link:decoration-blue-400 truncate w-full">
+                    ${s.title}
+                </a>
             `;
             sourcesList.appendChild(li);
         });
     } else {
-        sourcesList.innerHTML = '<li class="text-gray-600 italic">No public links available. Verdict based on internal logic.</li>';
+        sourcesList.innerHTML = '<li class="text-gray-500 italic">> No public data trace found. Verdict inferred from logic patterns.</li>';
     }
 }
 
@@ -308,8 +328,8 @@ function renderErrorState() {
 
 function showFeedback(msg, type) {
     if (!formStatus) return;
-    formStatus.innerText = msg;
-    formStatus.className = `text-xs font-mono transition-opacity uppercase tracking-wider ${type==='error'?'text-red-500':'text-blue-400'}`;
+    formStatus.innerText = `> ${msg}`;
+    formStatus.className = `text-xs font-mono transition-opacity uppercase tracking-wider ${type==='error'?'text-red-500':'text-blue-400 animate-pulse'}`;
 }
 
 function setLoading(isLoading) {
@@ -317,11 +337,13 @@ function setLoading(isLoading) {
     submitBtn.disabled = isLoading;
     if(isLoading) {
         submitBtn.innerHTML = `<span class="animate-pulse">PROCESSING...</span>`;
+        submitBtn.classList.add('opacity-75', 'cursor-wait');
     } else {
         submitBtn.innerHTML = `
             <span class="relative z-10 flex items-center gap-2">
-                Initialize Scan
+                Initiate Scan
                 <svg class="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
             </span>`;
+        submitBtn.classList.remove('opacity-75', 'cursor-wait');
     }
 }

@@ -21,43 +21,52 @@ except Exception as e:
 
 # --- Prompts ---
 
-# [UPDATED] Added Confidence Scoring & Reasoning Trace Logic
+# [UPDATED] "The Brain" - Now includes the Logic/Absurdity Check
 SYNTHESIS_PROMPT_TEMPLATE = """
 You are the Chief Misinformation Analyst for Sentinel AI. 
-Your task is to analyze a specific claim based ONLY on the provided evidence and determine its veracity, potential for harm, and a quantitative confidence score.
+Your task is to analyze a specific claim based on the provided evidence AND your internal knowledge of the world.
 
 CURRENT TIME: {current_time}
 
 CLAIM TO ANALYZE: "{claim}"
 
-EVIDENCE COLLECTED:
+EVIDENCE COLLECTED (External Tools):
 1. Official Government Sources:
 {official_evidence}
 
 2. Media Reports:
 {media_evidence}
 
-3. Fact-Check & OSINT Databases (Prior Debunks):
+3. Fact-Check & OSINT Databases:
 {debunk_evidence}
 
 CRITICAL INSTRUCTIONS:
-1. **DETECT ZOMBIE RUMORS:** Check if the evidence mentions this is an "old video", "recycled image", or "out of context" content from a previous year.
-2. **SCORING RULES (Confidence Score 0-100):**
-   - **90-100**: Direct denial/confirmation from Official Govt Source OR Primary Video Evidence.
-   - **75-89**: Multiple Reliable Media Outlets (Reuters, NDTV, BBC) report the same facts.
-   - **50-74**: Single reliable source OR conflicting details in mainstream media.
-   - **0-49**: Social media only, viral echoes, or no reliable data found.
-3. **VERDICT LOGIC:**
-   - Status "VERIFIED": Multiple credible sources confirm the event is REAL and CURRENT.
-   - Status "DEBUNKED": Official sources deny it, OR fact-checkers label it fake, OR it is proven to be old footage.
-   - Status "UNCONFIRMED": Conflicting reports or lack of credible evidence.
+1. **EVIDENCE PRIORITY:** - If external evidence exists, prioritize it.
+   - **IF EXTERNAL EVIDENCE IS ZERO/IRRELEVANT:** You MUST rely on your Internal Knowledge Base to detect absurdity.
+
+2. **DETECT ABSURDITY (The "Salman Khan Paradox"):**
+   - If a claim involves famous public figures doing something impossible or highly public (marriage, death, arrest) and there is ZERO news coverage, **THE CLAIM IS FALSE.**
+   - Real events of this magnitude would be headlines everywhere. The *absence* of news for a massive celebrity event is proof of a Hoax.
+
+3. **DETECT ZOMBIE RUMORS:** - Check if the evidence mentions this is an "old video", "recycled image", or "out of context" content from a previous year.
+
+4. **SCORING RULES (Confidence Score 0-100):**
+   - **90-100 (VERIFIED):** Direct official confirmation or multiple Tier-1 news sources.
+   - **90-100 (DEBUNKED - Explicit):** Fact-checkers explicitly say "Fake" or "False".
+   - **80-100 (DEBUNKED - Logic/Absurdity):** Claim is biologically impossible, historically wrong, or involves celebrities/politicians in major events with ZERO news coverage (Logic deduction).
+   - **0-49 (UNCONFIRMED):** Plausible but unverified local events (e.g., "Fire in small village") where lack of news is expected.
+
+5. **VERDICT LOGIC:**
+   - "VERIFIED": Validated by sources.
+   - "DEBUNKED": Proven false by sources OR deduced as false via Absurdity Check.
+   - "UNCONFIRMED": Plausible events lacking data.
 
 OUTPUT REQUIREMENT:
 Return a single, valid JSON object with this exact structure:
 {{
   "status": "VERIFIED" | "DEBUNKED" | "UNCONFIRMED",
   "confidence_score": <int>,
-  "reasoning_trace": "A single technical sentence explaining the score (e.g. 'Matched official police denial via Twitter API').",
+  "reasoning_trace": "Explain valid sources OR explain the logical deduction (e.g. 'Claim is absurd; no media coverage of such a massive event exists').",
   "summary": "A concise 2-sentence explanation. If DEBUNKED, explain WHY.",
   "sources": [
     {{ "title": "Source Name", "url": "URL" }}
@@ -65,7 +74,7 @@ Return a single, valid JSON object with this exact structure:
 }}
 """
 
-# [UPDATED] Master Conclusion
+# Master Conclusion Prompt (Kept robust)
 CRISIS_CONCLUSION_PROMPT = """
 You are the Strategic Threat Analyst for Sentinel AI.
 Your task is to generate a "Live Threat Assessment" for an active narrative.
@@ -126,6 +135,7 @@ async def synthesize_evidence(
     """
     logger.info(f"Synthesizing evidence for: '{claim}'")
     
+    # We treat empty lists as explicit "No info found" for the prompt
     fmt_official = "\n".join([f"- {item}" for item in official]) if official else "No direct official confirmation found."
     fmt_media = "\n".join([f"- {item}" for item in media]) if media else "No relevant media reports found."
     fmt_debunk = "\n".join([f"- {item}" for item in debunk]) if debunk else "No prior fact-checks found."
@@ -163,7 +173,7 @@ async def synthesize_evidence(
                 "sources": []
             }
 
-        # [NEW] Extract Trust Metrics
+        # Extract Trust Metrics
         confidence_score = result.get("confidence_score", 0)
         reasoning_trace = result.get("reasoning_trace", "Analysis completed.")
 
@@ -180,8 +190,8 @@ async def synthesize_evidence(
                 status=result.get("status", "UNCONFIRMED"),
                 summary=result.get("summary", ""),
                 sources=result.get("sources", []),
-                confidence_score=confidence_score,  # [NEW]
-                reasoning_trace=reasoning_trace     # [NEW]
+                confidence_score=confidence_score,  
+                reasoning_trace=reasoning_trace     
             )
             logger.info(f"Updated existing TimelineItem {timeline_item_id} with score {confidence_score}")
             return result
@@ -196,8 +206,8 @@ async def synthesize_evidence(
                 status=result.get("status", "UNCONFIRMED"),
                 sources=result.get("sources", []),
                 location=location,
-                confidence_score=confidence_score,  # [NEW]
-                reasoning_trace=reasoning_trace     # [NEW]
+                confidence_score=confidence_score,  
+                reasoning_trace=reasoning_trace     
             )
             return result
 
